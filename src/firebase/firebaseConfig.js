@@ -1,0 +1,25 @@
+﻿import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyDAJig66eOUWLINBN662WRxCTUDqcCibcc',
+  authDomain: 'stherplay-app-47825.firebaseapp.com',
+  projectId: 'stherplay-app-47825',
+  storageBucket: 'stherplay-app-47825.firebasestorage.app',
+  messagingSenderId: '846243619708',
+  appId: '1:846243619708:web:b7fa494f7a35061bf53af9',
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+window.firebaseServices = {
+  app,
+  db,
+  auth,
+  firebaseConfig,
+};
+
+export { app, db, auth, firebaseConfig };

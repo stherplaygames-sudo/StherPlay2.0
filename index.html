@@ -1,0 +1,434 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Sther Play - Streaming Control</title>
+
+    <link rel="stylesheet" href="src/styles/main.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="appSidebar">
+        <div class="profile-card">
+          <div class="profile-avatar" id="profileAvatar">A</div>
+          <div>
+            <div class="profile-name" id="profileName">Usuario</div>
+            <div class="profile-email" id="profileEmail">Sin sesión</div>
+          </div>
+        </div>
+
+        <div class="menu-title">Menú</div>
+
+        <div class="sidebar-menu">
+          <nav class="sidebar-nav menu-items">
+            <button type="button" class="menu-link is-active" data-view="dashboard" onclick="setActiveView('dashboard')">
+              Panel
+            </button>
+            <button type="button" class="menu-link" data-view="clients" onclick="irABuscarCliente()">
+              Clientes
+            </button>
+            <button type="button" class="menu-link" data-view="subscriptions" onclick="abrirVistaSuscripciones()">
+              Suscripciones
+            </button>
+          </nav>
+
+          <div class="menu-footer">
+            <button type="button" class="menu-link logout-link" onclick="handleLogout()">
+              Salir
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
+
+      <main class="app-main">
+        <div class="content-topbar">
+          <button type="button" class="topbar-icon" id="menuToggle" onclick="toggleSidebar()">
+            <span aria-hidden="true">&#9776;</span>
+            <span class="sr-only">Abrir menú</span>
+          </button>
+          <div class="topbar-title">Sther Play Control</div>
+          <div class="topbar-actions">
+            <div class="topbar-status">En línea</div>
+            <button type="button" class="topbar-icon small-icon" onclick="goToDashboard()" title="Ir al panel">
+              <span aria-hidden="true">&#8962;</span>
+              <span class="sr-only">Panel</span>
+            </button>
+            <button type="button" class="topbar-icon small-icon" id="refreshButton" onclick="refreshAppData()" title="Refrescar datos">
+              <span aria-hidden="true">&#10227;</span>
+              <span class="sr-only">Refrescar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="content-views">
+          <section class="content-view is-active" id="dashboard-view" data-view="dashboard">
+            <section class="hero-card compact-hero">
+              <div>
+                <div class="hero-kicker">Panel</div>
+                <h2>Control general de Sther Play</h2>
+                <p>Monitorea clientes y suscripciones desde un panel móvil más limpio y rápido.</p>
+              </div>
+            </section>
+
+            <section class="metrics-grid">
+              <article class="metric-card">
+                <div class="metric-label">Clientes Totales</div>
+                <div class="metric-value" id="metricTotalClients">0</div>
+              </article>
+              <article class="metric-card success">
+                <div class="metric-label">Suscripciones Activas</div>
+                <div class="metric-value" id="metricActiveSubscriptions">0</div>
+              </article>
+              <article class="metric-card danger">
+                <div class="metric-label">Suscripciones Vencidas</div>
+                <div class="metric-value" id="metricExpiredSubscriptions">0</div>
+              </article>
+              <article class="metric-card warning">
+                <div class="metric-label">Por Vencer</div>
+                <div class="metric-value" id="metricExpiringSoon">0</div>
+              </article>
+            </section>
+
+            <section class="dashboard-grid">
+              <article class="card dashboard-card">
+                <div class="dashboard-card-header">
+                  <div>
+                    <div class="view-kicker">Estado General</div>
+                    <h3>Distribución de suscripciones</h3>
+                  </div>
+                </div>
+                <div class="chart-shell">
+                  <canvas id="statusChart"></canvas>
+                </div>
+                <div class="chart-legend" id="statusLegend"></div>
+              </article>
+
+              <article class="card dashboard-card">
+                <div class="dashboard-card-header">
+                  <div>
+                    <div class="view-kicker">Alertas</div>
+                    <h3>Próximos vencimientos</h3>
+                  </div>
+                </div>
+                <div class="alert-list" id="dashboardAlerts"></div>
+              </article>
+            </section>
+
+            <section class="card dashboard-card platform-card">
+              <div class="dashboard-card-header">
+                <div>
+                  <div class="view-kicker">Plataformas</div>
+                  <h3>Suscripciones por plataforma</h3>
+                </div>
+              </div>
+              <div class="platform-list" id="platformStatsList"></div>
+            </section>
+          </section>
+
+          <section class="content-view" id="clients-view" data-view="clients">
+            <div class="view-header">
+              <div>
+                <div class="view-kicker">Clientes</div>
+                <h2>Clientes</h2>
+                <p>Busca, filtra, edita y revisa detalles de clientes desde una sola lista.</p>
+              </div>
+            </div>
+
+            <div class="card module-shell">
+              <div class="module-toolbar clients-toolbar">
+                <div class="search-toolbar-row">
+                  <label class="search-shell compact-search-shell">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input type="text" id="clientsSearchInput" placeholder="Buscar cliente..." />
+                  </label>
+                  <button
+                    type="button"
+                    id="clientsFilterToggle"
+                    class="filter-icon-btn"
+                    aria-label="Abrir filtros"
+                    aria-expanded="false"
+                    title="Filtrar clientes"
+                  >
+                    <span aria-hidden="true">⏷</span>
+                  </button>
+                </div>
+                <div id="clientsFilterPanel" class="filter-dropdown hidden">
+                  <select id="clientsFilterSelect" class="filter-select compact-filter-select">
+                    <option value="AZ">A-Z</option>
+                    <option value="ACTIVA">Activas</option>
+                    <option value="VENCIDA">Vencidas</option>
+                    <option value="POR_VENCER">Por vencer</option>
+                    <option value="SUSPENDIDA">Suspendidas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cards-grid two-columns" id="clientsGrid"></div>
+              <div class="empty-state hidden" id="clientsEmptyState">No se encontraron clientes para este filtro.</div>
+              <button type="button" class="fab-button" onclick="abrirAgregarCliente()" title="Agregar cliente">+</button>
+            </div>
+          </section>
+
+          <section class="content-view" id="subscriptions-view" data-view="subscriptions">
+            <div class="view-header">
+              <div>
+                <div class="view-kicker">Suscripciones</div>
+                <h2>Suscripciones</h2>
+                <p>Las más vencidas aparecen primero, luego las que están por vencer y después las activas.</p>
+              </div>
+            </div>
+
+            <div class="card module-shell">
+              <div class="module-toolbar clients-toolbar">
+                <div class="search-toolbar-row">
+                  <label class="search-shell compact-search-shell">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input type="text" id="subscriptionsSearchInput" placeholder="Buscar suscripción..." />
+                  </label>
+                  <button
+                    type="button"
+                    id="subscriptionsFilterToggle"
+                    class="filter-icon-btn"
+                    aria-label="Abrir filtros"
+                    aria-expanded="false"
+                    title="Filtrar suscripciones"
+                  >
+                    <span aria-hidden="true">⏷</span>
+                  </button>
+                </div>
+                <div id="subscriptionsFilterPanel" class="filter-dropdown hidden">
+                  <select id="subscriptionsFilterSelect" class="filter-select compact-filter-select">
+                    <option value="TODAS">Todas</option>
+                    <option value="VENCIDA">Vencidas</option>
+                    <option value="POR_VENCER">Por vencer</option>
+                    <option value="ACTIVA">Activas</option>
+                    <option value="SUSPENDIDA">Suspendidas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cards-grid" id="subscriptionsGrid"></div>
+              <div class="empty-state hidden" id="subscriptionsEmptyState">No se encontraron suscripciones.</div>
+              <button type="button" class="fab-button" onclick="abrirCrearSub()" title="Crear suscripción">+</button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="src/store/appState.js"></script>
+    <script type="module" src="src/utils/appUtils.js"></script>
+    <script type="module" src="src/services/sheetsService.js"></script>
+    <script type="module" src="src/firebase/firebaseConfig.js"></script>
+    <script type="module" src="src/services/firebaseService.js"></script>
+    <script type="module" src="src/services/authService.js"></script>
+    <script type="module" src="src/services/appCache.js"></script>
+    <script type="module" src="src/services/firebaseSyncService.js"></script>
+    <script type="module" src="src/pages/searchPage.js"></script>
+    <script type="module" src="src/pages/dashboardPage.js"></script>
+    <script type="module" src="src/pages/customersPage.js"></script>
+    <script type="module" src="src/pages/subscriptionsPage.js"></script>
+    <script type="module" src="src/pages/loginPage.js"></script>
+    <script type="module" src="src/utils/pwa.js"></script>
+    <script type="module" src="src/app.js"></script>
+
+    <div id="modalRenovar" class="modal hidden">
+      <div class="modal-box">
+        <h3>Renew subscription</h3>
+
+        <label>Months</label>
+        <input id="renovarMeses" type="number" min="1" value="1" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="confirmarRenovar()">Confirm</button>
+          <button class="btn-cancel" onclick="cerrarRenovar()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalAgregarCliente" class="modal hidden">
+      <div class="modal-box">
+        <h3>Add client</h3>
+
+        <label>Client name</label>
+        <input type="text" id="nuevoNombre" placeholder="Example: YESNER BRISEÑO" />
+
+        <label>Phone</label>
+        <input type="text" id="nuevoTelefono" placeholder="Example: 84952063" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="guardarCliente()">Save</button>
+          <button class="btn-cancel" onclick="cerrarAgregarCliente()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalEditarSub" class="modal hidden">
+      <div class="modal-box">
+        <h3>Edit subscription</h3>
+
+        <label>Platform</label>
+        <input id="editPlataforma" disabled />
+
+        <label>Start date</label>
+        <input type="date" id="editInicio" />
+
+        <label>Expiration date</label>
+        <input type="date" id="editVencimiento" />
+
+        <label>Status</label>
+        <select id="editEstado">
+          <option value="ACTIVA">ACTIVA</option>
+          <option value="SUSPENDIDA">SUSPENDIDA</option>
+          <option value="VENCIDA">VENCIDA</option>
+        </select>
+
+        <label>Final price</label>
+        <input id="editPrecioFinal" placeholder="Leave empty to keep current value" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="confirmarEditarSub()">Save</button>
+          <button class="btn-cancel" onclick="cerrarEditarSub()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalEditarCuenta" class="modal hidden">
+      <div class="modal-box">
+        <h3>Edit account</h3>
+
+        <label>Email</label>
+        <input id="editCorreo" placeholder="correo@gmail.com" />
+
+        <label>Profile</label>
+        <input id="editPerfil" placeholder="Profile 1" />
+
+        <label>Password</label>
+        <input id="editContrasena" placeholder="Optional" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="confirmarEditarCuenta()">Save</button>
+          <button class="btn-cancel" onclick="cerrarEditarCuenta()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalBaja" class="modal hidden">
+      <div class="modal-box">
+        <h3>Suspend subscription</h3>
+
+        <p style="font-size: 0.9rem; opacity: 0.85">
+          This will suspend the subscription and the client will lose access.
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="confirmarDarDeBaja()">Confirm</button>
+          <button class="btn-cancel" onclick="cerrarDarDeBaja()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalCrearSub" class="modal hidden">
+      <div class="modal-box">
+        <h3>Create subscription</h3>
+
+        <label>Client</label>
+        <div class="dropdown">
+          <input type="text" id="subClienteInput" placeholder="Search client" autocomplete="off" />
+          <div id="clienteList" class="dropdown-list hidden"></div>
+        </div>
+
+        <label>Platform</label>
+        <select id="subPlataforma">
+          <option value="">Select platform</option>
+        </select>
+
+        <label>Base price</label>
+        <input id="subPrecioBase" disabled />
+
+        <label>Final price</label>
+        <input id="subPrecioFinal" type="number" placeholder="Example: 100" />
+
+        <label>Start date</label>
+        <input type="date" id="subFechaInicio" />
+
+        <label>Months</label>
+        <select id="subMeses">
+          <option value="">Select</option>
+          <option value="1">1 month</option>
+          <option value="2">2 months</option>
+          <option value="3">3 months</option>
+          <option value="4">4 months</option>
+          <option value="5">5 months</option>
+          <option value="6">6 months</option>
+          <option value="7">7 months</option>
+          <option value="8">8 months</option>
+          <option value="9">9 months</option>
+          <option value="10">10 months</option>
+          <option value="11">11 months</option>
+          <option value="12">12 months</option>
+        </select>
+
+        <h4>Account data</h4>
+
+        <input id="subCorreo" type="email" placeholder="correo@gmail.com" />
+        <input id="subPerfil" placeholder="Profile 1" />
+        <input id="subContrasena" placeholder="Password" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="guardarSuscripcion()">Save</button>
+          <button class="btn-cancel" onclick="cerrarCrearSub()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalEditarCliente" class="modal hidden">
+      <div class="modal-box">
+        <h3>Edit client</h3>
+
+        <label>Name</label>
+        <input id="editNombre" placeholder="Client name" />
+
+        <label>Phone</label>
+        <input id="editTelefono" placeholder="Example: 88887777" />
+
+        <label>Status</label>
+        <select id="editEstado">
+          <option value="ACTIVA">ACTIVA</option>
+          <option value="INACTIVO">INACTIVO</option>
+        </select>
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="guardarEdicionCliente()">Save</button>
+          <button class="btn-cancel" onclick="cerrarEditarCliente()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalClienteDetalles" class="modal hidden">
+      <div class="modal-box details-modal-box">
+        <div class="details-header">
+          <div>
+            <h3 id="clienteDetallesTitulo">Client details</h3>
+            <p id="clienteDetallesSubtitulo" class="details-subtitle"></p>
+          </div>
+          <button type="button" class="btn-cancel icon-close" onclick="cerrarDetallesCliente()">Close</button>
+        </div>
+        <div id="clienteDetallesContent" class="details-content"></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+  </body>
+</html>
+
+
+
+
+
