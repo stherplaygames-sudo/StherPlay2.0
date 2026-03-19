@@ -14,19 +14,7 @@
   });
 }
 
-function init() {
-  if (!('serviceWorker' in navigator)) return;
-
-  if (
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname === 'localhost'
-  ) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => registration.unregister());
-    });
-    return;
-  }
-
+function registrarServiceWorker() {
   navigator.serviceWorker.register('/service-worker.js').then((registration) => {
     registration.onupdatefound = () => {
       const newWorker = registration.installing;
@@ -43,6 +31,22 @@ function init() {
       };
     };
   });
+}
+
+function init() {
+  if (!('serviceWorker' in navigator)) return;
+
+  if (
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === 'localhost'
+  ) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+    });
+    return;
+  }
+
+  window.addEventListener('load', registrarServiceWorker, { once: true });
 }
 
 window.pwaManager = { init };
