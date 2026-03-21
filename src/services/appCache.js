@@ -1,6 +1,8 @@
 ﻿const state = window.appState;
 const firebaseService = window.firebaseService;
 
+const CACHE_STORAGE_KEY = 'sther-play-cache-v1';
+
 function formatDate(value) {
   if (!value) return '';
 
@@ -133,6 +135,59 @@ function toLoadErrorMessage(error) {
   return message;
 }
 
+function saveCacheSnapshot(payload) {
+  try {
+    localStorage.setItem(
+      CACHE_STORAGE_KEY,
+      JSON.stringify({
+        updatedAt: Date.now(),
+        ...payload,
+      })
+    );
+  } catch (error) {
+    console.warn('Could not persist cache snapshot:', error);
+  }
+}
+
+function loadCacheSnapshot() {
+  try {
+    const raw = localStorage.getItem(CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.clients) || !Array.isArray(parsed.subscriptions)) {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.warn('Could not read cache snapshot:', error);
+    return null;
+  }
+}
+
+function applyCacheSnapshot(snapshot) {
+  const clients = Array.isArray(snapshot?.clients) ? snapshot.clients : [];
+  const subscriptions = Array.isArray(snapshot?.subscriptions) ? snapshot.subscriptions : [];
+  const accounts = Array.isArray(snapshot?.accounts) ? snapshot.accounts : [];
+  const rawClients = Array.isArray(snapshot?.rawClients) ? snapshot.rawClients : clients.map((item) => ({
+    id: item.id,
+    nombre: item.nombre,
+    telefono: item.telefono,
+    estado: item.estadoCliente,
+    saldo: item.saldo,
+  }));
+
+  state.clientSummaries = clients;
+  state.subscriptionRecords = subscriptions;
+  state.accountsCache = accounts;
+  state.clientesCache = rawClients;
+
+  return {
+    clients,
+    subscriptions,
+    accounts,
+  };
+}
+
 async function ensureData(force = false) {
   if (!force && Array.isArray(state.clientSummaries) && Array.isArray(state.subscriptionRecords)) {
     return {
@@ -184,6 +239,14 @@ async function ensureData(force = false) {
 
     state.clientSummaries = clientSummaries;
     state.subscriptionRecords = subscriptionRecords;
+    state.lastSyncAt = Date.now();
+
+    saveCacheSnapshot({
+      clients: clientSummaries,
+      subscriptions: subscriptionRecords,
+      accounts,
+      rawClients: clients,
+    });
 
     return {
       clients: clientSummaries,
@@ -191,6 +254,13 @@ async function ensureData(force = false) {
       accounts,
     };
   } catch (error) {
+    const snapshot = loadCacheSnapshot();
+    if (snapshot) {
+      state.loadError = 'Sin conexion. Mostrando datos guardados.';
+      state.lastSyncAt = snapshot.updatedAt || null;
+      return applyCacheSnapshot(snapshot);
+    }
+
     state.clientSummaries = [];
     state.subscriptionRecords = [];
     state.accountsCache = [];
@@ -221,4 +291,5 @@ window.appCache = {
   getSubscriptionsByClientId,
   statusPriority,
   formatDate,
+  loadCacheSnapshot,
 };

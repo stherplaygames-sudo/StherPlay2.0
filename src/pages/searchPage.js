@@ -1,5 +1,6 @@
 ﻿const state = window.appState;
 const appCache = window.appCache;
+const firebaseService = window.firebaseService;
 const { showToast } = window.appUtils || {};
 
 function getFilteredClients() {
@@ -74,11 +75,11 @@ function renderClientCards() {
               </div>
             </div>
           </div>
-          <div class="inventory-side">
+          <div class="inventory-side inventory-side-actions">
             <button type="button" class="icon-button card-edit-icon" onclick="abrirEditarClienteDesdeCard('${item.id}')">✎</button>
+            <button type="button" class="delete-icon-btn" onclick="abrirEliminarCliente('${item.id}')" title="Eliminar cliente">🗑</button>
           </div>
-          <div class="card-actions-row inventory-actions">
-            <button type="button" class="btn-secondary slim-btn" onclick="abrirEditarClienteDesdeCard('${item.id}')">Editar</button>
+          <div class="card-actions-row inventory-actions client-actions-single">
             <button type="button" class="module-action slim-btn" onclick="verDetallesCliente('${item.id}')">Detalles</button>
           </div>
         </article>
@@ -150,6 +151,51 @@ async function verDetallesCliente(idCliente) {
   modal.classList.remove('hidden');
 }
 
+function abrirEliminarCliente(idCliente) {
+  state.clienteAEliminar = String(idCliente || '').trim();
+  const input = document.getElementById('eliminarClienteConfirmacion');
+  if (input) input.value = '';
+  document.getElementById('modalEliminarCliente')?.classList.remove('hidden');
+}
+
+function cerrarEliminarCliente() {
+  document.getElementById('modalEliminarCliente')?.classList.add('hidden');
+  const input = document.getElementById('eliminarClienteConfirmacion');
+  if (input) input.value = '';
+  state.clienteAEliminar = null;
+}
+
+async function confirmarEliminarCliente() {
+  const btn = document.querySelector('#modalEliminarCliente .btn-delete');
+  const input = document.getElementById('eliminarClienteConfirmacion');
+  const confirmacion = String(input?.value || '').trim().toUpperCase();
+
+  if (!state.clienteAEliminar) {
+    showToast?.('No hay cliente seleccionado', 'error');
+    return;
+  }
+
+  if (confirmacion !== 'ELIMINAR') {
+    showToast?.('Escribe ELIMINAR para confirmar', 'error');
+    input?.focus();
+    return;
+  }
+
+  try {
+    btn && (btn.disabled = true);
+    await firebaseService.deleteClientCascade(state.clienteAEliminar);
+    appCache.invalidate();
+    showToast?.('Cliente eliminado', 'success');
+    cerrarEliminarCliente();
+    await refreshClientsView(true);
+  } catch (error) {
+    console.error(error);
+    showToast?.('No se pudo eliminar el cliente', 'error');
+  } finally {
+    btn && (btn.disabled = false);
+  }
+}
+
 function cerrarDetallesCliente() {
   document.getElementById('modalClienteDetalles')?.classList.add('hidden');
 }
@@ -157,7 +203,6 @@ function cerrarDetallesCliente() {
 function irABuscarCliente() {
   window.setActiveView?.('clients');
   window.toggleSidebar?.(false);
-  document.getElementById('clientsSearchInput')?.focus();
 }
 
 function init() {
@@ -222,4 +267,7 @@ window.searchPage = {
 window.irABuscarCliente = irABuscarCliente;
 window.verDetallesCliente = verDetallesCliente;
 window.cerrarDetallesCliente = cerrarDetallesCliente;
+window.abrirEliminarCliente = abrirEliminarCliente;
+window.cerrarEliminarCliente = cerrarEliminarCliente;
+window.confirmarEliminarCliente = confirmarEliminarCliente;
 

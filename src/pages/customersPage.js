@@ -1,5 +1,5 @@
 ﻿const state = window.appState;
-const sheets = window.sheetsService;
+const firebaseService = window.firebaseService;
 const appCache = window.appCache;
 const { setButtonLoading, showToast } = window.appUtils;
 
@@ -30,20 +30,14 @@ async function guardarCliente() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.agregarCliente(nombre, telefono);
-
-    if (!data.ok) {
-      showToast(data.message || 'Error al agregar cliente', 'error');
-      return;
-    }
-
+    await firebaseService.createClient(nombre, telefono);
     appCache.invalidate();
     showToast('Cliente agregado con exito');
     cerrarAgregarCliente();
     await window.searchPage?.refreshClientsView?.(true);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al agregar cliente', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -52,9 +46,9 @@ async function guardarCliente() {
 function cargarClienteEnFormulario(cliente) {
   if (!cliente) return;
   state.clienteEditandoId = cliente.id;
-  document.getElementById('editNombre').value = cliente.nombre || '';
-  document.getElementById('editTelefono').value = cliente.telefono || '';
-  document.getElementById('editEstado').value = cliente.estadoCliente || cliente.estado || 'ACTIVA';
+  document.getElementById('editClienteNombre').value = cliente.nombre || '';
+  document.getElementById('editClienteTelefono').value = cliente.telefono || '';
+  document.getElementById('editClienteEstado').value = cliente.estadoCliente || cliente.estado || 'ACTIVA';
 }
 
 function abrirEditarCliente(idCliente = null) {
@@ -71,9 +65,9 @@ function abrirEditarCliente(idCliente = null) {
 
 function cerrarEditarCliente() {
   document.getElementById('modalEditarCliente').classList.add('hidden');
-  document.getElementById('editNombre').value = '';
-  document.getElementById('editTelefono').value = '';
-  document.getElementById('editEstado').value = 'ACTIVA';
+  document.getElementById('editClienteNombre').value = '';
+  document.getElementById('editClienteTelefono').value = '';
+  document.getElementById('editClienteEstado').value = 'ACTIVA';
   state.clienteEditandoId = null;
 }
 
@@ -87,9 +81,9 @@ async function guardarEdicionCliente() {
 
   const payload = {
     id: state.clienteEditandoId,
-    nombre: document.getElementById('editNombre').value.trim(),
-    telefono: document.getElementById('editTelefono').value.trim(),
-    estado: document.getElementById('editEstado').value,
+    nombre: document.getElementById('editClienteNombre').value.trim(),
+    telefono: document.getElementById('editClienteTelefono').value.trim(),
+    estado: document.getElementById('editClienteEstado').value,
   };
 
   if (!payload.nombre || !payload.telefono) {
@@ -99,20 +93,14 @@ async function guardarEdicionCliente() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.editarCliente(payload);
-
-    if (!data.ok) {
-      showToast(data.message || 'Error al guardar', 'error');
-      return;
-    }
-
+    await firebaseService.updateClient(payload);
     appCache.invalidate();
     showToast('Cliente actualizado');
     cerrarEditarCliente();
     await window.searchPage?.refreshClientsView?.(true);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al guardar', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -128,4 +116,3 @@ window.abrirEditarCliente = abrirEditarCliente;
 window.abrirEditarClienteDesdeCard = abrirEditarCliente;
 window.cerrarEditarCliente = cerrarEditarCliente;
 window.guardarEdicionCliente = guardarEdicionCliente;
-

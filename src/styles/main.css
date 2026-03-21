@@ -1344,3 +1344,100 @@ select:focus {
     flex-basis: 56px;
   }
 }
+.btn-whatsapp {
+  background: linear-gradient(180deg, #22c55e, #16a34a);
+  color: #ffffff;
+}
+
+.btn-whatsapp[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+@media (max-width: 430px) {
+  .inventory-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    align-items: stretch;
+  }
+
+  .inventory-actions .slim-btn {
+    width: 100%;
+    min-width: 0;
+    padding: 0.72rem 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  .inventory-price-tag {
+    min-width: 84px;
+    padding: 0.62rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+.btn-delete {
+  background: linear-gradient(180deg, #ef4444, #b91c1c);
+}
+
+.delete-icon-btn {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.24);
+}
+
+.delete-icon-btn:hover {
+  background: rgba(239, 68, 68, 0.24);
+}
+
+.inventory-side-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+@media (max-width: 699px) {
+  .inventory-side-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 430px) {
+  .inventory-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventory-actions.has-delete {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.client-actions-single {
+  justify-content: flex-end;
+}
+
+.client-actions-single .slim-btn {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+@media (max-width: 430px) {
+  .client-actions-single {
+    display: flex;
+  }
+
+  .client-actions-single .slim-btn {
+    width: 100%;
+    min-width: 0;
+  }
+}
+.filter-dropdown {
+  display: grid;
+  gap: 0.7rem;
+}

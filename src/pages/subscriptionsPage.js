@@ -1,6 +1,6 @@
 ﻿const state = window.appState;
-const sheets = window.sheetsService;
 const appCache = window.appCache;
+const firebaseService = window.firebaseService;
 const { normalizarFechaISO, setButtonLoading, showToast } = window.appUtils;
 
 function statusClass(status) {
@@ -20,6 +20,99 @@ function formatDays(daysRemaining) {
   if (daysRemaining === undefined || daysRemaining === null) return 'N/A';
   if (daysRemaining < 0) return `${Math.abs(daysRemaining)} dias tarde`;
   return `${daysRemaining} dias`;
+}
+
+function parseLocalDate(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function matchesDateFilter(item, dateFilter) {
+  const expireDate = parseLocalDate(item.fechaVencimiento);
+  if (!expireDate) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (dateFilter === 'HOY') {
+    return isSameDay(expireDate, today);
+  }
+
+  if (dateFilter === 'SEMANA') {
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + 6);
+    return expireDate >= today && expireDate <= endOfWeek;
+  }
+
+  if (dateFilter === 'MES') {
+    return (
+      expireDate.getFullYear() === today.getFullYear() &&
+      expireDate.getMonth() === today.getMonth()
+    );
+  }
+
+  return true;
+}
+
+function buildWhatsAppMessage(tipo, plataforma, nombre) {
+  if (tipo === 'VENCIDA') {
+    return (
+      `Hola ${nombre} 👋 Tu suscripcion de ${plataforma} ya vencio 🎧\n\n` +
+      'Aun sigue funcionando 😉\n' +
+      'Si quieres, la renovamos para que no tengas interrupciones 🔥\n\n' +
+      'Estoy listo para ayudarte 🚀'
+    );
+  }
+
+  return (
+    `Hola ${nombre} 👋 Tu suscripcion de ${plataforma} esta por vencer 🎧\n\n` +
+    'Si quieres, podemos renovarla antes de que tengas interrupciones 🔥\n\n' +
+    'Estoy listo para ayudarte 🚀'
+  );
+}
+
+function abrirWhatsAppSuscripcion(telefono, tipo, plataforma, nombre) {
+  const phone = String(telefono || '').replace(/\D/g, '');
+
+  if (phone.length < 8) {
+    showToast('Cliente sin telefono valido', 'error');
+    return;
+  }
+
+  const mensaje = buildWhatsAppMessage(tipo, plataforma, nombre);
+  const url = `https://wa.me/505${phone}?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, '_blank');
+}
+
+function renderWhatsAppButton(item) {
+  if (item.normalizedStatus !== 'VENCIDA') {
+    return '';
+  }
+
+  const phone = String(item.clientPhone || item.telefono || '').replace(/\D/g, '');
+  if (phone.length < 8) {
+    return '<button class="btn-whatsapp slim-btn" disabled title="Cliente sin telefono registrado">WH</button>';
+  }
+
+  const safePhone = phone.replace(/'/g, '');
+  const safePlatform = String(item.plataforma || '').replace(/'/g, '');
+  const safeName = String(item.clientName || '').replace(/'/g, '');
+
+  return `<button class="btn-whatsapp slim-btn" onclick="abrirWhatsAppSuscripcion('${safePhone}','VENCIDA','${safePlatform}','${safeName}')">WH</button>`;
+}
+
+function renderDeleteButton(item) {
+  return `<button type="button" class="delete-icon-btn" onclick="abrirEliminarSuscripcion('${item.idSuscripcion}')" title="Eliminar suscripción">🗑</button>`;
 }
 
 async function loadSubscriptionRecords(force = false) {
@@ -76,6 +169,7 @@ async function renderSuscripciones(idCliente, target = null) {
                   <button class="btn-renew slim-btn" onclick="abrirRenovar('${item.idSuscripcion}')">Renew</button>
                   <button class="btn-edit slim-btn" onclick="abrirEditarSuscripcion('${item.idSuscripcion}')">Edit</button>
                   <button class="btn-cancel slim-btn" onclick="abrirDarDeBaja('${item.idSuscripcion}')">Suspend</button>
+                  ${renderWhatsAppButton(item)}
                 </div>
               </article>
             `
@@ -91,6 +185,7 @@ async function renderSuscripciones(idCliente, target = null) {
 function getFilteredSubscriptions() {
   const query = String(state.subscriptionsQuery || '').trim().toLowerCase();
   const filter = state.subscriptionsFilter || 'TODAS';
+  const dateFilter = state.subscriptionsDateFilter || 'HOY';
 
   return [...(state.subscriptionRecords || [])].filter((item) => {
     const matchesQuery = !query || (
@@ -99,7 +194,10 @@ function getFilteredSubscriptions() {
       String(item.clientId).toLowerCase().includes(query)
     );
 
-    const matchesFilter = filter === 'TODAS' || item.normalizedStatus === filter;
+    const matchesFilter =
+      filter === 'TODAS' ||
+      (filter === 'POR_FECHA' ? matchesDateFilter(item, dateFilter) : item.normalizedStatus === filter);
+
     return matchesQuery && matchesFilter;
   });
 }
@@ -134,13 +232,15 @@ function renderSubscriptionCards() {
               </div>
             </div>
           </div>
-          <div class="inventory-side">
+          <div class="inventory-side inventory-side-actions">
             <div class="inventory-price-tag">C$ ${item.precioFinal || item.precio || item.price || 0}</div>
+            ${renderDeleteButton(item)}
           </div>
-          <div class="card-actions-row inventory-actions">
+          <div class="card-actions-row inventory-actions has-delete">
             <button class="btn-renew slim-btn" onclick="abrirRenovar('${item.idSuscripcion}')">Renovar</button>
             <button class="btn-edit slim-btn" onclick="abrirEditarSuscripcion('${item.idSuscripcion}')">Editar</button>
             <button class="btn-cancel slim-btn" onclick="abrirDarDeBaja('${item.idSuscripcion}')">Suspender</button>
+            ${renderWhatsAppButton(item)}
           </div>
         </article>
       `
@@ -194,12 +294,7 @@ async function confirmarRenovar() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.renovarSuscripcion(state.suscripcionARenovar, meses);
-    if (!data?.ok) {
-      showToast(data?.message || 'Error al renovar', 'error');
-      return;
-    }
-
+    await firebaseService.renewSubscription(state.suscripcionARenovar, meses);
     appCache.invalidate();
     showToast('Suscripcion renovada con exito');
     cerrarRenovar();
@@ -209,7 +304,7 @@ async function confirmarRenovar() {
     ]);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al renovar', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -262,9 +357,9 @@ async function initPlataformaDropdown() {
   const precioBaseInput = document.getElementById('subPrecioBase');
   if (!select || !precioBaseInput) return;
 
-  const data = await sheets.listarPlataformas();
+  const plataformas = await firebaseService.getPlatforms();
   select.innerHTML = '<option value="">Selecciona plataforma</option>';
-  (data.plataformas || []).forEach((plataforma) => {
+  (plataformas || []).forEach((plataforma) => {
     const option = document.createElement('option');
     option.value = plataforma.nombre;
     option.textContent = plataforma.nombre;
@@ -308,12 +403,7 @@ async function guardarSuscripcion() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.crearSuscripcion(payload);
-    if (!data.ok) {
-      showToast(data.message || 'Error al crear', 'error');
-      return;
-    }
-
+    await firebaseService.createSubscription(payload);
     appCache.invalidate();
     showToast('Suscripcion creada correctamente');
     cerrarCrearSub();
@@ -323,14 +413,24 @@ async function guardarSuscripcion() {
     ]);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al crear', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
 }
 
 function limpiarCrearSub() {
-  ['subClienteInput','subPlataforma','subPrecioBase','subPrecioFinal','subFechaInicio','subMeses','subCorreo','subPerfil','subContrasena'].forEach((id) => {
+  [
+    'subClienteInput',
+    'subPlataforma',
+    'subPrecioBase',
+    'subPrecioFinal',
+    'subFechaInicio',
+    'subMeses',
+    'subCorreo',
+    'subPerfil',
+    'subContrasena',
+  ].forEach((id) => {
     const element = document.getElementById(id);
     if (element) element.value = '';
   });
@@ -344,19 +444,19 @@ function cerrarCrearSub() {
 
 async function abrirEditarSuscripcion(id) {
   state.suscripcionEditando = id;
-  const data = await sheets.obtenerSuscripcionParaEditar(id);
-  if (!data.ok) {
-    showToast(data.message, 'error');
-    return;
-  }
 
-  const item = data.suscripcion;
-  document.getElementById('editPlataforma').value = item.plataforma;
-  document.getElementById('editInicio').value = item.inicio;
-  document.getElementById('editVencimiento').value = item.vencimiento;
-  document.getElementById('editEstado').value = item.estado;
-  document.getElementById('editPrecioFinal').value = item.precioFinal || '';
-  document.getElementById('modalEditarSub').classList.remove('hidden');
+  try {
+    const item = await firebaseService.getSubscriptionById(id);
+    document.getElementById('editPlataforma').value = item.plataforma;
+    document.getElementById('editInicio').value = item.inicio;
+    document.getElementById('editVencimiento').value = item.vencimiento;
+    document.getElementById('editEstado').value = item.estado;
+    document.getElementById('editPrecioFinal').value = item.precioFinal || '';
+    document.getElementById('modalEditarSub').classList.remove('hidden');
+  } catch (error) {
+    console.error(error);
+    showToast(error?.message || 'No se pudo cargar la suscripcion', 'error');
+  }
 }
 
 async function confirmarEditarSub() {
@@ -371,12 +471,7 @@ async function confirmarEditarSub() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.guardarEdicionSuscripcion(payload);
-    if (!data.ok) {
-      showToast(data.message || 'Error al guardar', 'error');
-      return;
-    }
-
+    await firebaseService.updateSubscription(payload);
     appCache.invalidate();
     showToast('Suscripcion actualizada');
     cerrarEditarSub();
@@ -386,7 +481,7 @@ async function confirmarEditarSub() {
     ]);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al guardar', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -399,16 +494,17 @@ function cerrarEditarSub() {
 
 async function abrirEditarCuenta(idSuscripcion) {
   state.cuentaEditando = idSuscripcion;
-  const data = await sheets.obtenerCuentaParaEditar(idSuscripcion);
-  if (!data.ok) {
-    showToast(data.message, 'error');
-    return;
-  }
 
-  document.getElementById('editCorreo').value = data.cuenta.correo;
-  document.getElementById('editPerfil').value = data.cuenta.perfil;
-  document.getElementById('editContrasena').value = data.cuenta.contrasena;
-  document.getElementById('modalEditarCuenta').classList.remove('hidden');
+  try {
+    const cuenta = await firebaseService.getAccountBySubscriptionId(idSuscripcion);
+    document.getElementById('editCorreo').value = cuenta.correo;
+    document.getElementById('editPerfil').value = cuenta.perfil;
+    document.getElementById('editContrasena').value = cuenta.contrasena;
+    document.getElementById('modalEditarCuenta').classList.remove('hidden');
+  } catch (error) {
+    console.error(error);
+    showToast(error?.message || 'No se pudo cargar la cuenta', 'error');
+  }
 }
 
 async function confirmarEditarCuenta() {
@@ -422,12 +518,7 @@ async function confirmarEditarCuenta() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.guardarCuenta(payload);
-    if (!data.ok) {
-      showToast(data.message, 'error');
-      return;
-    }
-
+    await firebaseService.updateAccount(payload);
     appCache.invalidate();
     showToast('Cuenta actualizada');
     cerrarEditarCuenta();
@@ -436,7 +527,8 @@ async function confirmarEditarCuenta() {
       refreshSubscriptionsView(true),
     ]);
   } catch (error) {
-    showToast('Error de conexion', 'error');
+    console.error(error);
+    showToast(error?.message || 'Error al guardar la cuenta', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -466,12 +558,7 @@ async function confirmarDarDeBaja() {
 
   try {
     setButtonLoading(btn, true);
-    const data = await sheets.darDeBajaSuscripcion(state.suscripcionABaja);
-    if (!data.ok) {
-      showToast(data.message || 'Error al dar de baja', 'error');
-      return;
-    }
-
+    await firebaseService.suspendSubscription(state.suscripcionABaja);
     appCache.invalidate();
     showToast('Suscripcion suspendida');
     cerrarDarDeBaja();
@@ -481,7 +568,55 @@ async function confirmarDarDeBaja() {
     ]);
   } catch (error) {
     console.error(error);
-    showToast('Error de conexion', 'error');
+    showToast(error?.message || 'Error al suspender', 'error');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+function abrirEliminarSuscripcion(idSuscripcion) {
+  state.suscripcionAEliminar = String(idSuscripcion || '').trim();
+  const input = document.getElementById('eliminarSuscripcionConfirmacion');
+  if (input) input.value = '';
+  document.getElementById('modalEliminarSuscripcion')?.classList.remove('hidden');
+}
+
+function cerrarEliminarSuscripcion() {
+  document.getElementById('modalEliminarSuscripcion')?.classList.add('hidden');
+  const input = document.getElementById('eliminarSuscripcionConfirmacion');
+  if (input) input.value = '';
+  state.suscripcionAEliminar = null;
+}
+
+async function confirmarEliminarSuscripcion() {
+  const btn = document.querySelector('#modalEliminarSuscripcion .btn-delete');
+  const input = document.getElementById('eliminarSuscripcionConfirmacion');
+  const confirmacion = String(input?.value || '').trim().toUpperCase();
+
+  if (!state.suscripcionAEliminar) {
+    showToast('No hay suscripcion seleccionada', 'error');
+    return;
+  }
+
+  if (confirmacion !== 'ELIMINAR') {
+    showToast('Escribe ELIMINAR para confirmar', 'error');
+    input?.focus();
+    return;
+  }
+
+  try {
+    setButtonLoading(btn, true);
+    await firebaseService.deleteSubscriptionCascade(state.suscripcionAEliminar);
+    appCache.invalidate();
+    showToast('Suscripcion eliminada');
+    cerrarEliminarSuscripcion();
+    await Promise.all([
+      window.searchPage?.refreshClientsView?.(true),
+      refreshSubscriptionsView(true),
+    ]);
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo eliminar la suscripcion', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -490,15 +625,18 @@ async function confirmarDarDeBaja() {
 function init() {
   const searchInput = document.getElementById('subscriptionsSearchInput');
   const filterSelect = document.getElementById('subscriptionsFilterSelect');
+  const dateFilterSelect = document.getElementById('subscriptionsDateFilterSelect');
   const filterToggle = document.getElementById('subscriptionsFilterToggle');
   const filterPanel = document.getElementById('subscriptionsFilterPanel');
 
   state.subscriptionsQuery = '';
   state.subscriptionsFilter = 'TODAS';
+  state.subscriptionsDateFilter = 'HOY';
   state.subscriptionsFilterOpen = false;
 
   const syncFilterPanel = () => {
     filterPanel?.classList.toggle('hidden', !state.subscriptionsFilterOpen);
+    dateFilterSelect?.classList.toggle('hidden', state.subscriptionsFilter !== 'POR_FECHA');
     filterToggle?.setAttribute('aria-expanded', String(state.subscriptionsFilterOpen));
   };
 
@@ -512,12 +650,21 @@ function init() {
     syncFilterPanel();
 
     if (state.subscriptionsFilterOpen) {
-      filterSelect?.focus();
+      (state.subscriptionsFilter === 'POR_FECHA' ? dateFilterSelect : filterSelect)?.focus();
     }
   });
 
   filterSelect?.addEventListener('change', (event) => {
     state.subscriptionsFilter = event.target.value;
+    if (state.subscriptionsFilter !== 'POR_FECHA') {
+      state.subscriptionsFilterOpen = false;
+    }
+    syncFilterPanel();
+    renderSubscriptionCards();
+  });
+
+  dateFilterSelect?.addEventListener('change', (event) => {
+    state.subscriptionsDateFilter = event.target.value;
     state.subscriptionsFilterOpen = false;
     syncFilterPanel();
     renderSubscriptionCards();
@@ -563,3 +710,7 @@ window.cerrarEditarCuenta = cerrarEditarCuenta;
 window.abrirDarDeBaja = abrirDarDeBaja;
 window.cerrarDarDeBaja = cerrarDarDeBaja;
 window.confirmarDarDeBaja = confirmarDarDeBaja;
+window.abrirEliminarSuscripcion = abrirEliminarSuscripcion;
+window.cerrarEliminarSuscripcion = cerrarEliminarSuscripcion;
+window.confirmarEliminarSuscripcion = confirmarEliminarSuscripcion;
+window.abrirWhatsAppSuscripcion = abrirWhatsAppSuscripcion;

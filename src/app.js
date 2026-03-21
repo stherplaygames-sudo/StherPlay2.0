@@ -47,8 +47,7 @@ async function refreshAppData() {
 function toggleSidebar(force) {
   const sidebar = document.getElementById('appSidebar');
   const overlay = document.getElementById('sidebarOverlay');
-  const nextOpen =
-    typeof force === 'boolean' ? force : !Boolean(state.sidebarOpen);
+  const nextOpen = typeof force === 'boolean' ? force : !Boolean(state.sidebarOpen);
 
   state.sidebarOpen = nextOpen;
   document.body.classList.toggle('sidebar-open', nextOpen);
@@ -85,9 +84,30 @@ function applyAuthState(user) {
   setActiveView(state.activeView || 'dashboard');
 }
 
+function setupConnectivitySync() {
+  const { showToast } = window.appUtils || {};
+
+  window.addEventListener('offline', () => {
+    state.isOffline = true;
+    showToast?.('Sin internet. Usando datos guardados.', 'error', 3500);
+  });
+
+  window.addEventListener('online', async () => {
+    state.isOffline = false;
+    showToast?.('Conexion restaurada. Sincronizando datos...', 'success', 2500);
+
+    try {
+      await refreshAppData();
+    } catch (error) {
+      console.error('Error syncing after reconnect:', error);
+    }
+  });
+}
+
 function initApp() {
   state.sidebarOpen = false;
   state.activeView = 'dashboard';
+  state.isOffline = !navigator.onLine;
   updateProfileUI(null);
 
   try {
@@ -99,6 +119,8 @@ function initApp() {
   } catch (error) {
     console.error('Error inicializando app:', error);
   }
+
+  setupConnectivitySync();
 
   onAuthStateChanged(auth, (user) => {
     applyAuthState(user);
@@ -117,4 +139,3 @@ window.goToDashboard = goToDashboard;
 window.refreshAppData = refreshAppData;
 
 document.addEventListener('DOMContentLoaded', initApp);
-

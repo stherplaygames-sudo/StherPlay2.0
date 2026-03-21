@@ -1,4 +1,4 @@
-﻿# Sther Play App
+# Sther Play App
 
 ## Desarrollo
 
@@ -14,26 +14,14 @@ npm run build
 npm run preview
 ```
 
-## Migrar Sheets a Firestore
+## Stack actual
 
-1. Crea Firestore y las colecciones `clients` y `subscriptions`.
-2. Descarga tu clave de servicio desde Firebase Console > Project Settings > Service accounts.
-3. Guarda esa clave como `serviceAccountKey.json` en la raiz del proyecto.
-4. Ejecuta:
+- Vite
+- Firebase Auth
+- Firestore
+- Firebase Functions
+- PWA
 
-```bash
-npm run import:firestore
-```
+## Nota
 
-Por defecto el script usa este Apps Script:
-
-```text
-https://script.google.com/macros/s/AKfycbwBsBwp5zkmr_cnq0ZuZAhlIfdSO7VH-whbiwgmWA26x_r7YC0QbqpP8ZfAmVYYrOU/exec
-```
-
-Si quieres usar otra URL:
-
-```bash
-set APPS_SCRIPT_URL=https://tu-script/exec
-npm run import:firestore
-```
+La app usa Firebase como fuente principal de datos y autenticación.

@@ -9,6 +9,8 @@
   accountsCache: null,
   loadError: null,
   suscripcionARenovar: null,
+  suscripcionAEliminar: null,
+  clienteAEliminar: null,
   clienteActualId: null,
   clientesGlobal: [],
   resultContent: null,
