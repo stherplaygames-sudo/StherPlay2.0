@@ -40,13 +40,21 @@ function normalizeClient(client) {
   };
 }
 
+function inferAccountId(account) {
+  const explicit = String(account?.cuentaId || account?.accountId || '').trim();
+  if (explicit) return explicit;
+  return firebaseService.buildAccountKey(account?.plataforma || account?.platform, account?.correo || account?.email);
+}
+
 function normalizeAccount(account) {
   return {
     id: String(account?.id || '').trim(),
     idSuscripcion: String(account?.idSuscripcion || account?.subscriptionId || account?.id || '').trim(),
+    cuentaId: inferAccountId(account),
     correo: String(account?.correo || account?.email || '').trim(),
     perfil: String(account?.perfil || account?.profile || '').trim(),
     contrasena: String(account?.contrasena || account?.password || '').trim(),
+    plataforma: String(account?.plataforma || account?.platform || '').trim(),
   };
 }
 
@@ -68,10 +76,19 @@ function normalizeSubscriptionStatus(subscription, accountsMap = {}) {
   }
 
   const linkedAccount = accountsMap[idSuscripcion] || {};
+  const cuentaId = String(
+    subscription?.cuentaId ||
+    subscription?.accountId ||
+    linkedAccount?.cuentaId ||
+    linkedAccount?.accountId ||
+    ''
+  ).trim();
 
   return {
     ...subscription,
     idSuscripcion,
+    cuentaId,
+    accountId: cuentaId,
     clientId: String(subscription?.clientId || subscription?.clienteId || '').trim(),
     clientName: String(subscription?.clientName || subscription?.nombre || '').trim(),
     clientPhone: String(subscription?.clientPhone || subscription?.telefono || '').trim(),
@@ -217,13 +234,10 @@ async function ensureData(force = false) {
     state.clientesCache = clients;
     state.accountsCache = accounts;
 
-    const subscriptionsByClient = clients.map((client) => {
-      const clientSubscriptions = subscriptions.filter((item) => item.clientId === client.id);
-      return {
-        client,
-        subscriptions: clientSubscriptions,
-      };
-    });
+    const subscriptionsByClient = clients.map((client) => ({
+      client,
+      subscriptions: subscriptions.filter((item) => item.clientId === client.id),
+    }));
 
     const clientSummaries = subscriptionsByClient
       .map(({ client, subscriptions: items }) => buildClientSummary(client, items))
@@ -273,6 +287,8 @@ function invalidate() {
   state.clientSummaries = null;
   state.subscriptionRecords = null;
   state.accountsCache = null;
+  state.accountSummaries = null;
+  state.correoSummaries = null;
   state.loadError = null;
 }
 
@@ -293,3 +309,4 @@ window.appCache = {
   formatDate,
   loadCacheSnapshot,
 };
+

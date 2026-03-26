@@ -1,6 +1,9 @@
 ﻿const state = window.appState;
 const appCache = window.appCache;
 const firebaseService = window.firebaseService;
+const plataformasService = window.plataformasService;
+const accountsService = window.accountsService;
+const cuentasSmart = window.cuentasSmart;
 const { normalizarFechaISO, setButtonLoading, showToast } = window.appUtils;
 
 function statusClass(status) {
@@ -113,6 +116,80 @@ function renderWhatsAppButton(item) {
 
 function renderDeleteButton(item) {
   return `<button type="button" class="delete-icon-btn" onclick="abrirEliminarSuscripcion('${item.idSuscripcion}')" title="Eliminar suscripción">🗑</button>`;
+}
+
+function renderSuggestedAccount(account, platformName, summary = null) {
+  const box = document.getElementById('cuentaSugeridaBox');
+  const emailInput = document.getElementById('subCorreo');
+  if (!box || !emailInput) return;
+
+  if (!account && !summary) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    emailInput.dataset.cuentaId = '';
+    return;
+  }
+
+  const occupancy = Number(summary?.porcentajeOcupacion ?? 0);
+  const occupancyClass = occupancy >= 100 ? 'status-danger' : occupancy >= 85 ? 'status-warning' : 'status-active';
+
+  if (!account) {
+    emailInput.dataset.cuentaId = '';
+    box.innerHTML = `
+      <article class="suggested-account-card no-suggestion-card">
+        <div>
+          <span class="view-kicker">Capacidad de plataforma</span>
+          <h4>${platformName}</h4>
+          <p>No hay cuentas disponibles ahora mismo. Ocupacion ${summary?.totalUsados || 0}/${summary?.totalCapacidad || 0}.</p>
+        </div>
+        <div class="status-chip ${occupancyClass}">${occupancy}%</div>
+      </article>
+    `;
+    box.classList.remove('hidden');
+    return;
+  }
+
+  emailInput.dataset.cuentaId = account.id;
+  if (!emailInput.value.trim()) {
+    emailInput.value = account.correo || '';
+  }
+
+  box.innerHTML = `
+    <article class="suggested-account-card">
+      <div>
+        <span class="view-kicker">Sugerencia inteligente</span>
+        <h4>${account.correo}</h4>
+        <p>${platformName || account.plataforma} · ${account.perfilesUsados}/${account.perfilesMax} perfiles usados</p>
+        <p class="suggested-account-subline">Ocupacion de plataforma: ${summary?.totalUsados || account.perfilesUsados}/${summary?.totalCapacidad || account.perfilesMax}</p>
+      </div>
+      <div class="suggested-account-side">
+        <div class="status-chip ${account.cuposDisponibles <= 1 ? 'status-warning' : 'status-active'}">
+          ${account.cuposDisponibles} disponibles
+        </div>
+        <div class="status-chip ${occupancyClass}">${occupancy}%</div>
+      </div>
+    </article>
+  `;
+  box.classList.remove('hidden');
+}
+
+async function updateSuggestedAccount() {
+  const select = document.getElementById('subPlataforma');
+  const platformName = String(select?.value || '').trim();
+
+  if (!platformName) {
+    renderSuggestedAccount(null, '', null);
+    return;
+  }
+
+  try {
+    const summary = await accountsService.getPlatformOperationalSummary(platformName, false);
+    const sugerida = cuentasSmart.sugerirCuenta(summary.cuentas || []);
+    renderSuggestedAccount(sugerida, platformName, summary);
+  } catch (error) {
+    console.error('No se pudo sugerir cuenta:', error);
+    renderSuggestedAccount(null, platformName, null);
+  }
 }
 
 async function loadSubscriptionRecords(force = false) {
@@ -357,27 +434,93 @@ async function initPlataformaDropdown() {
   const precioBaseInput = document.getElementById('subPrecioBase');
   if (!select || !precioBaseInput) return;
 
-  const plataformas = await firebaseService.getPlatforms();
-  select.innerHTML = '<option value="">Selecciona plataforma</option>';
-  (plataformas || []).forEach((plataforma) => {
-    const option = document.createElement('option');
-    option.value = plataforma.nombre;
-    option.textContent = plataforma.nombre;
-    option.dataset.precio = plataforma.precio;
-    select.appendChild(option);
-  });
+  try {
+    const data = await plataformasService.getPlataformas();
+    const uniquePlatforms = Array.from(
+      new Map(
+        (data || [])
+          .filter((item) => item?.activo && item?.nombre)
+          .map((item) => [item.nombre.toUpperCase(), item])
+      ).values()
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-  select.onchange = () => {
-    precioBaseInput.value = select.selectedOptions[0]?.dataset?.precio || '';
-  };
+    select.innerHTML = '<option value="">Selecciona plataforma</option>';
+    uniquePlatforms.forEach((plataforma) => {
+      const option = document.createElement('option');
+      option.value = plataforma.nombre;
+      option.textContent = plataforma.nombre;
+      option.dataset.precio = String(plataforma.precioBase || 0);
+      option.dataset.perfiles = String(plataforma.perfiles || 0);
+      select.appendChild(option);
+    });
+
+    select.onchange = async () => {
+      precioBaseInput.value = select.selectedOptions[0]?.dataset?.precio || '';
+      await updateSuggestedAccount();
+    };
+  } catch (error) {
+    console.error(error);
+    select.innerHTML = '<option value="">Sin plataformas</option>';
+    precioBaseInput.value = '';
+    showToast('No se pudieron cargar las plataformas', 'error');
+  }
 }
 
 function abrirCrearSub() {
   window.toggleSidebar?.(false);
   document.getElementById('modalCrearSub').classList.remove('hidden');
+  renderSuggestedAccount(null);
   cargarClientesSelect();
   initClienteAutocomplete();
   initPlataformaDropdown();
+}
+
+async function initEditPlataformaDropdown(selectedValue = '') {
+  const select = document.getElementById('editPlataforma');
+  const precioFinalInput = document.getElementById('editPrecioFinal');
+  if (!select) return;
+
+  try {
+    const data = await plataformasService.getPlataformas();
+    const uniquePlatforms = Array.from(
+      new Map(
+        (data || [])
+          .filter((item) => item?.activo && item?.nombre)
+          .map((item) => [item.nombre.toUpperCase(), item])
+      ).values()
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    select.innerHTML = '<option value="">Selecciona plataforma</option>';
+    uniquePlatforms.forEach((plataforma) => {
+      const option = document.createElement('option');
+      option.value = plataforma.nombre;
+      option.textContent = plataforma.nombre;
+      option.dataset.precio = String(plataforma.precioBase || 0);
+      select.appendChild(option);
+    });
+
+    const fallbackValue = String(selectedValue || '').trim();
+    if (fallbackValue && !uniquePlatforms.some((item) => item.nombre === fallbackValue)) {
+      const option = document.createElement('option');
+      option.value = fallbackValue;
+      option.textContent = `${fallbackValue} (actual)`;
+      option.dataset.precio = '';
+      select.appendChild(option);
+    }
+
+    select.value = fallbackValue;
+    select.onchange = () => {
+      const suggestedPrice = select.selectedOptions[0]?.dataset?.precio || '';
+      if (!precioFinalInput) return;
+      if (!String(precioFinalInput.value || '').trim() && suggestedPrice) {
+        precioFinalInput.value = suggestedPrice;
+      }
+    };
+  } catch (error) {
+    console.error(error);
+    select.innerHTML = '<option value="">Sin plataformas</option>';
+    showToast('No se pudieron cargar las plataformas', 'error');
+  }
 }
 
 async function guardarSuscripcion() {
@@ -434,6 +577,11 @@ function limpiarCrearSub() {
     const element = document.getElementById(id);
     if (element) element.value = '';
   });
+  const correoInput = document.getElementById('subCorreo');
+  if (correoInput) {
+    correoInput.dataset.cuentaId = '';
+  }
+  renderSuggestedAccount(null);
   state.clienteSeleccionadoId = null;
 }
 
@@ -447,7 +595,7 @@ async function abrirEditarSuscripcion(id) {
 
   try {
     const item = await firebaseService.getSubscriptionById(id);
-    document.getElementById('editPlataforma').value = item.plataforma;
+    await initEditPlataformaDropdown(item.plataforma);
     document.getElementById('editInicio').value = item.inicio;
     document.getElementById('editVencimiento').value = item.vencimiento;
     document.getElementById('editEstado').value = item.estado;
@@ -463,11 +611,17 @@ async function confirmarEditarSub() {
   const btn = document.querySelector('#modalEditarSub .btn-save');
   const payload = {
     idSuscripcion: state.suscripcionEditando,
+    plataforma: document.getElementById('editPlataforma').value,
     inicio: document.getElementById('editInicio').value,
     vencimiento: document.getElementById('editVencimiento').value,
     estado: document.getElementById('editEstado').value,
     precioFinal: document.getElementById('editPrecioFinal').value,
   };
+
+  if (!payload.plataforma) {
+    showToast('Selecciona una plataforma', 'error');
+    return;
+  }
 
   try {
     setButtonLoading(btn, true);
@@ -714,3 +868,6 @@ window.abrirEliminarSuscripcion = abrirEliminarSuscripcion;
 window.cerrarEliminarSuscripcion = cerrarEliminarSuscripcion;
 window.confirmarEliminarSuscripcion = confirmarEliminarSuscripcion;
 window.abrirWhatsAppSuscripcion = abrirWhatsAppSuscripcion;
+
+
+

@@ -144,6 +144,7 @@ function renderPlatformStats(platformStats) {
           <span class="mini-stat active">🟢 ${item.active}</span>
           <span class="mini-stat warning">🟠 ${item.expiring}</span>
           <span class="mini-stat danger">🔴 ${item.expired}</span>
+          <button type="button" class="view-accounts-btn" onclick="abrirCuentasPorPlataforma('${item.platform.replace(/'/g, '')}')">Ver cuentas</button>
         </div>
       </article>
     `)
@@ -169,3 +170,4 @@ window.dashboardPage = {
   init,
   refreshDashboard,
 };
+

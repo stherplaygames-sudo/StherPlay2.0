@@ -30,6 +30,25 @@ function normalizeName(value) {
     .toUpperCase();
 }
 
+function normalizeSlug(value) {
+  return cleanString(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildCorreoKey(email) {
+  return normalizeSlug(String(email || '').toLowerCase()) || 'sin-correo';
+}
+
+function buildAccountKey(platform, email) {
+  const platformKey = normalizeSlug(platform) || 'sin-plataforma';
+  const emailKey = buildCorreoKey(email);
+  return `${platformKey}--${emailKey}`;
+}
+
 function parseDateInput(value) {
   if (!value) return null;
   if (typeof value?.toDate === 'function') return value.toDate();
@@ -216,6 +235,9 @@ async function createSubscription(payload) {
   const platform = cleanString(payload?.plataforma).toUpperCase();
   const startDate = formatDateISO(payload?.fechaInicio);
   const months = Number(payload?.meses);
+  const email = cleanString(payload?.correo);
+  const correoId = buildCorreoKey(email);
+  const accountId = cleanString(payload?.cuentaId) || buildAccountKey(platform, email);
 
   if (!clientId || !platform || !startDate || !months) {
     throw new Error('Datos incompletos');
@@ -238,6 +260,8 @@ async function createSubscription(payload) {
   const subscriptionPayload = {
     id: subscriptionId,
     idSuscripcion: subscriptionId,
+    cuentaId: accountId,
+    accountId,
     clientId,
     clienteId: clientId,
     clientName: cleanString(client?.nombre || client?.name),
@@ -246,6 +270,8 @@ async function createSubscription(payload) {
     telefono: cleanString(client?.telefono || client?.phone),
     plataforma: platform,
     platform,
+    correoId,
+    emailId: correoId,
     fechaInicio: startDate,
     startDate,
     fechaVencimiento: expireDate,
@@ -259,6 +285,8 @@ async function createSubscription(payload) {
     precioFinal: finalPrice,
     precio: finalPrice,
     price: finalPrice,
+    perfil: cleanString(payload?.perfil),
+    profile: cleanString(payload?.perfil),
     source: 'firebase',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -268,12 +296,16 @@ async function createSubscription(payload) {
     id: subscriptionId,
     idSuscripcion: subscriptionId,
     subscriptionId,
+    cuentaId: accountId,
+    accountId,
     clientId,
     clienteId: clientId,
     plataforma: platform,
     platform,
-    correo: cleanString(payload?.correo),
-    email: cleanString(payload?.correo),
+    correoId,
+    emailId: correoId,
+    correo: email,
+    email,
     perfil: cleanString(payload?.perfil),
     profile: cleanString(payload?.perfil),
     contrasena: cleanString(payload?.contrasena),
@@ -288,7 +320,7 @@ async function createSubscription(payload) {
   batch.set(doc(db, 'accounts', subscriptionId), accountPayload, { merge: true });
   await batch.commit();
 
-  return { ok: true, idSuscripcion: subscriptionId };
+  return { ok: true, idSuscripcion: subscriptionId, cuentaId: accountId };
 }
 
 async function getSubscriptionById(subscriptionId) {
@@ -301,6 +333,7 @@ async function getSubscriptionById(subscriptionId) {
   const data = snapshot.data();
   return {
     idSuscripcion: id,
+    cuentaId: cleanString(data?.cuentaId || data?.accountId),
     plataforma: cleanString(data?.plataforma || data?.platform),
     inicio: formatDateISO(data?.fechaInicio || data?.startDate),
     vencimiento: formatDateISO(data?.fechaVencimiento || data?.expireDate),
@@ -316,6 +349,8 @@ async function updateSubscription(payload) {
   const id = cleanString(payload?.idSuscripcion);
   if (!id) throw new Error('ID requerido');
 
+  const existing = await getSubscriptionById(id);
+  const platform = cleanString(payload?.plataforma || existing.plataforma).toUpperCase();
   const startDate = formatDateISO(payload?.inicio);
   const expireDate = formatDateISO(payload?.vencimiento);
   const explicitStatus = cleanString(payload?.estado).toUpperCase();
@@ -323,7 +358,13 @@ async function updateSubscription(payload) {
   const status = deriveSubscriptionStatus(expireDate, explicitStatus);
   const daysRemaining = calculateDaysRemaining(expireDate);
 
+  if (!platform) throw new Error('Plataforma requerida');
+
   const updatePayload = {
+    cuentaId: cleanString(payload?.cuentaId) || existing.cuentaId || '',
+    accountId: cleanString(payload?.cuentaId) || existing.cuentaId || '',
+    plataforma: platform,
+    platform,
     fechaInicio: startDate,
     startDate,
     fechaVencimiento: expireDate,
@@ -343,6 +384,17 @@ async function updateSubscription(payload) {
   }
 
   await updateDoc(doc(db, 'subscriptions', id), updatePayload);
+
+  const accountRef = doc(db, 'accounts', id);
+  const accountSnapshot = await getDoc(accountRef);
+  if (accountSnapshot.exists()) {
+    await updateDoc(accountRef, {
+      plataforma: platform,
+      platform,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   return { ok: true };
 }
 
@@ -354,6 +406,7 @@ async function getAccountBySubscriptionId(subscriptionId) {
   if (directSnapshot.exists()) {
     const data = directSnapshot.data();
     return {
+      cuentaId: cleanString(data?.cuentaId || data?.accountId),
       correo: cleanString(data?.correo || data?.email),
       perfil: cleanString(data?.perfil || data?.profile),
       contrasena: cleanString(data?.contrasena || data?.password),
@@ -368,11 +421,12 @@ async function getAccountBySubscriptionId(subscriptionId) {
 
   const accountDoc = snapshots.flatMap((snapshot) => snapshot.docs)[0];
   if (!accountDoc) {
-    return { correo: '', perfil: '', contrasena: '' };
+    return { cuentaId: '', correo: '', perfil: '', contrasena: '' };
   }
 
   const data = accountDoc.data();
   return {
+    cuentaId: cleanString(data?.cuentaId || data?.accountId),
     correo: cleanString(data?.correo || data?.email),
     perfil: cleanString(data?.perfil || data?.profile),
     contrasena: cleanString(data?.contrasena || data?.password),
@@ -383,14 +437,25 @@ async function updateAccount(payload) {
   const id = cleanString(payload?.idSuscripcion);
   if (!id) throw new Error('ID requerido');
 
+  const subscriptionSnapshot = await getDoc(doc(db, 'subscriptions', id));
+  const subscriptionData = subscriptionSnapshot.exists() ? subscriptionSnapshot.data() : {};
+  const platform = cleanString(subscriptionData?.plataforma || subscriptionData?.platform);
+  const email = cleanString(payload?.correo);
+  const correoId = buildCorreoKey(email);
+  const accountId = cleanString(payload?.cuentaId) || buildAccountKey(platform, email);
+
   await setDoc(
     doc(db, 'accounts', id),
     {
       id,
       idSuscripcion: id,
       subscriptionId: id,
-      correo: cleanString(payload?.correo),
-      email: cleanString(payload?.correo),
+      cuentaId: accountId,
+      accountId,
+      correoId,
+      emailId: correoId,
+      correo: email,
+      email,
       perfil: cleanString(payload?.perfil),
       profile: cleanString(payload?.perfil),
       contrasena: cleanString(payload?.contrasena),
@@ -401,7 +466,13 @@ async function updateAccount(payload) {
     { merge: true }
   );
 
-  return { ok: true };
+  await updateDoc(doc(db, 'subscriptions', id), {
+    cuentaId: accountId,
+    accountId,
+    updatedAt: serverTimestamp(),
+  });
+
+  return { ok: true, cuentaId: accountId };
 }
 
 async function suspendSubscription(subscriptionId) {
@@ -543,6 +614,9 @@ window.firebaseService = {
   getClients,
   getSubscriptions,
   getAccounts,
+  buildCorreoKey,
+  buildCorreoKey,
+  buildAccountKey,
   createClient,
   updateClient,
   getPlatforms,
@@ -562,6 +636,7 @@ export {
   getClients,
   getSubscriptions,
   getAccounts,
+  buildAccountKey,
   createClient,
   updateClient,
   getPlatforms,

@@ -1441,3 +1441,334 @@ select:focus {
   display: grid;
   gap: 0.7rem;
 }
+
+.accounts-toolbar .search-toolbar-row {
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+}
+
+.account-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.account-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.account-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.account-meta {
+  margin-top: 0;
+}
+
+.account-actions {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.view-accounts-btn {
+  padding: 0.62rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  color: #dbeafe;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  font-weight: 700;
+}
+
+.view-accounts-btn:hover {
+  background: rgba(59, 130, 246, 0.24);
+}
+
+@media (max-width: 699px) {
+  .accounts-toolbar .search-toolbar-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accounts-occupancy-wrap {
+  margin-bottom: 1rem;
+}
+
+.occupancy-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.occupancy-card h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.08rem;
+}
+
+.occupancy-card p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.occupancy-metric {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.occupancy-bar {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.occupancy-progress {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #3b82f6);
+}
+
+.occupancy-card.is-warning .occupancy-progress {
+  background: linear-gradient(90deg, #f59e0b, #fb923c);
+}
+
+.occupancy-card.is-full .occupancy-progress {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.badge-llena {
+  letter-spacing: 0.04em;
+}
+
+.badge-critica {
+  letter-spacing: 0.04em;
+}
+
+.badge-disponible {
+  letter-spacing: 0.04em;
+}
+
+.suggested-account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-top: 0.8rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.suggested-account-card h4 {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+}
+
+.suggested-account-card p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 699px) {
+  .suggested-account-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.platform-module-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.platform-module-meta {
+  margin-top: 0;
+}
+
+.platform-actions-row {
+  justify-content: stretch;
+}
+
+.platform-actions-row .slim-btn {
+  flex: 1 1 140px;
+}
+
+.checkbox-row {
+  display: flex !important;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  color: #dbe4f0;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.platform-occupancy {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.15rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.platform-occupancy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.platform-occupancy-head strong {
+  color: #e2e8f0;
+}
+
+.platform-occupancy.is-warning .occupancy-progress {
+  background: linear-gradient(90deg, #f59e0b, #fb923c);
+}
+
+.platform-occupancy.is-full .occupancy-progress {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.suggested-account-side {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+
+.suggested-account-subline {
+  margin-top: 0.35rem !important;
+}
+
+.no-suggestion-card {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+@media (max-width: 699px) {
+  .platform-occupancy-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .suggested-account-side {
+    width: 100%;
+    justify-items: start;
+  }
+}
+
+.import-platforms-btn {
+  flex: 0 0 auto;
+  min-width: 190px;
+}
+
+.platform-intel-card {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  font-weight: 700;
+}
+
+.platform-intel-card.alert-critico {
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(239, 68, 68, 0.38);
+  color: #fecaca;
+}
+
+.platform-intel-card.alert-alto {
+  background: rgba(120, 53, 15, 0.24);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #fde68a;
+}
+
+.platform-intel-card.auto-buy-card {
+  background: rgba(30, 64, 175, 0.2);
+  border-color: rgba(59, 130, 246, 0.32);
+  color: #dbeafe;
+}
+
+.account-profit-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.profit-pill {
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(15, 23, 42, 0.54);
+  font-weight: 700;
+}
+
+.profit-pill.success {
+  border-color: rgba(34, 197, 94, 0.32);
+  color: #bbf7d0;
+}
+
+.profit-pill.warning {
+  border-color: rgba(245, 158, 11, 0.32);
+  color: #fde68a;
+}
+
+.profit-pill.danger {
+  border-color: rgba(239, 68, 68, 0.32);
+  color: #fecaca;
+}
+
+.profit-pill.muted {
+  color: #cbd5e1;
+}
+
+@media (max-width: 640px) {
+  .account-profit-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.correo-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.correo-platform-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.correo-platform-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.32);
+  color: #d8e0ea;
+}
+
+.correo-meta-line {
+  margin-top: 0;
+}

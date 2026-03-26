@@ -35,6 +35,9 @@ async function refreshAppData() {
     setButtonLoading?.(button, true);
     await window.searchPage?.refreshClientsView?.(true);
     window.subscriptionsPage?.renderSubscriptionCards?.();
+    await window.plataformasPage?.refreshPlatformsView?.(true);
+    await window.accountsPage?.refreshAccountsView?.(true);
+    await window.correosPage?.refreshCorreosView?.(true);
     showToast?.('Datos actualizados');
   } catch (error) {
     console.error('Error refreshing data:', error);
@@ -115,6 +118,9 @@ function initApp() {
     window.searchPage?.init?.();
     window.dashboardPage?.init?.();
     window.subscriptionsPage?.init?.();
+    window.plataformasPage?.init?.();
+    window.accountsPage?.init?.();
+    window.correosPage?.init?.();
     window.pwaManager?.init?.();
   } catch (error) {
     console.error('Error inicializando app:', error);
