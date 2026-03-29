@@ -1,7 +1,7 @@
 ﻿const state = window.appState;
 const correosService = window.correosService;
 const cuentasUtils = window.cuentasUtils;
-const { showToast } = window.appUtils || {};
+const { showToast, setButtonLoading } = window.appUtils || {};
 
 function getFilteredCorreos() {
   const query = String(state.correosQuery || '').trim().toLowerCase();
@@ -36,7 +36,7 @@ function renderCorreosCards() {
       <div class="card-top compact-top">
         <div>
           <h3>${item.correo}</h3>
-          <p class="card-meta">Cuentas: ${item.totalCuentas} · Clientes: ${item.totalClientes}</p>
+          <p class="card-meta">${item.passwordMask}</p>
         </div>
         <div class="status-chip ${item.porcentajeOcupacion >= 95 ? 'status-danger' : item.porcentajeOcupacion >= 70 ? 'status-warning' : 'status-active'}">${item.porcentajeOcupacion}%</div>
       </div>
@@ -50,15 +50,18 @@ function renderCorreosCards() {
         </div>
       </div>
       <div class="correo-platform-list">
-        ${item.cuentas.map((cuenta) => `
-          <div class="correo-platform-row">
-            <span>${cuenta.plataforma}</span>
-            <span>${cuenta.perfilesUsados}/${cuenta.perfilesMax || cuenta.perfilesUsados}</span>
-          </div>
-        `).join('')}
+        ${item.cuentas.length
+          ? item.cuentas.map((cuenta) => `
+              <div class="correo-platform-row">
+                <span>${cuenta.plataforma}</span>
+                <span>${cuenta.perfilesUsados}/${cuenta.perfilesMax || cuenta.perfilesUsados}</span>
+              </div>
+            `).join('')
+          : '<div class="correo-platform-row empty-row"><span>Sin cuentas todavía</span><span>0/0</span></div>'}
       </div>
       <div class="inventory-meta correo-meta-line">
         <span>Ingresos: C$ ${item.ingresos}</span>
+        <span>Clientes: ${item.totalClientes}</span>
       </div>
       <div class="card-actions-row account-actions">
         <button type="button" class="module-action slim-btn" onclick="verDetallesCorreo('${item.id.replace(/'/g, '')}')">Ver detalle</button>
@@ -97,21 +100,60 @@ function verDetallesCorreo(correoId) {
 
   title.textContent = item.correo;
   subtitle.textContent = `${item.totalCuentas} cuentas - ${item.totalClientes} clientes - ${item.porcentajeOcupacion}% de uso`;
-  content.innerHTML = item.cuentas.length
-    ? item.cuentas.map((cuenta) => {
-        const estado = cuentasUtils.getEstadoCuenta(cuenta);
-        return `
-          <article class="sub-card">
-            <div class="sub-title">${cuenta.plataforma}</div>
-            Estado: ${estado}<br>
-            Uso: ${cuenta.perfilesUsados}/${cuenta.perfilesMax || cuenta.perfilesUsados}<br>
-            Clientes: ${cuenta.clientes.length}
-          </article>
-        `;
-      }).join('')
-    : '<div class="empty-state">No hay cuentas ligadas a este correo.</div>';
+  content.innerHTML = `
+    <article class="account-profit-card">
+      <div class="profit-pill muted">Contraseña: ${item.passwordMask}</div>
+      <div class="profit-pill success">Ingresos: C$ ${item.ingresos}</div>
+      <div class="profit-pill warning">Clientes: ${item.totalClientes}</div>
+      <div class="profit-pill ${item.porcentajeOcupacion >= 95 ? 'danger' : 'success'}">Ocupación: ${item.porcentajeOcupacion}%</div>
+    </article>
+    ${item.cuentas.length
+      ? item.cuentas.map((cuenta) => {
+          const estado = cuentasUtils.getEstadoCuenta(cuenta);
+          return `
+            <article class="sub-card">
+              <div class="sub-title">${cuenta.plataforma}</div>
+              Estado: ${estado}<br>
+              Uso: ${cuenta.perfilesUsados}/${cuenta.perfilesMax || cuenta.perfilesUsados}<br>
+              Clientes: ${cuenta.clientes.length}
+            </article>
+          `;
+        }).join('')
+      : '<div class="empty-state">No hay cuentas ligadas a este correo.</div>'}
+  `;
 
   modal.classList.remove('hidden');
+}
+
+function abrirAgregarCorreo() {
+  window.toggleSidebar?.(false);
+  document.getElementById('nuevoCorreoEmail').value = '';
+  document.getElementById('nuevoCorreoPassword').value = '';
+  document.getElementById('modalAgregarCorreo')?.classList.remove('hidden');
+}
+
+function cerrarAgregarCorreo() {
+  document.getElementById('modalAgregarCorreo')?.classList.add('hidden');
+}
+
+async function guardarCorreo() {
+  const btn = document.querySelector('#modalAgregarCorreo .btn-save');
+  const email = document.getElementById('nuevoCorreoEmail')?.value?.trim() || '';
+  const password = document.getElementById('nuevoCorreoPassword')?.value?.trim() || '';
+
+  try {
+    setButtonLoading?.(btn, true);
+    await correosService.createCorreo({ email, password });
+    state.correoSummaries = null;
+    showToast?.('Correo guardado');
+    cerrarAgregarCorreo();
+    await refreshCorreosView(true);
+  } catch (error) {
+    console.error(error);
+    showToast?.(error?.message || 'No se pudo guardar el correo', 'error');
+  } finally {
+    setButtonLoading?.(btn, false);
+  }
 }
 
 function cerrarDetallesCorreo() {
@@ -137,4 +179,7 @@ window.correosPage = {
 };
 window.abrirVistaCorreos = abrirVistaCorreos;
 window.verDetallesCorreo = verDetallesCorreo;
+window.abrirAgregarCorreo = abrirAgregarCorreo;
+window.cerrarAgregarCorreo = cerrarAgregarCorreo;
+window.guardarCorreo = guardarCorreo;
 window.cerrarDetallesCorreo = cerrarDetallesCorreo;

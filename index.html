@@ -308,6 +308,7 @@
 
               <div class="cards-grid two-columns" id="correosGrid"></div>
               <div class="empty-state hidden" id="correosEmptyState">No se encontraron correos para este filtro.</div>
+              <button type="button" class="fab-button" onclick="abrirAgregarCorreo()" title="Agregar correo">+</button>
             </div>
           </section>
         </div>
@@ -483,9 +484,18 @@
 
         <div id="cuentaSugeridaBox" class="hidden"></div>
 
-        <input id="subCorreo" type="email" placeholder="correo@gmail.com" />
-        <input id="subPerfil" placeholder="Profile 1" />
-        <input id="subContrasena" placeholder="Password" />
+        <div class="dropdown">
+          <input id="subCorreo" type="text" placeholder="correo@gmail.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <div id="correosList" class="dropdown-list hidden"></div>
+        </div>
+        <div class="dropdown">
+          <input id="subPerfil" placeholder="Profile 1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <div id="perfilesList" class="dropdown-list hidden"></div>
+        </div>
+        <div class="input-with-action">
+          <input id="subContrasena" placeholder="Password" />
+          <button type="button" class="mini-icon-btn" onclick="generarContrasenaSub()" title="Generar contraseña">⚙</button>
+        </div>
 
         <div class="modal-actions">
           <button class="btn-save" onclick="guardarSuscripcion()">Save</button>
@@ -609,6 +619,23 @@
         <div class="modal-actions">
           <button class="btn-save btn-delete" onclick="confirmarEliminarCliente()">Eliminar</button>
           <button class="btn-cancel" onclick="cerrarEliminarCliente()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalAgregarCorreo" class="modal hidden">
+      <div class="modal-box">
+        <h3>Agregar correo</h3>
+
+        <label>Correo</label>
+        <input id="nuevoCorreoEmail" type="email" placeholder="correo@gmail.com" />
+
+        <label>Contrase?a</label>
+        <input id="nuevoCorreoPassword" placeholder="Contrase?a base" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="guardarCorreo()">Guardar</button>
+          <button class="btn-cancel" onclick="cerrarAgregarCorreo()">Cancelar</button>
         </div>
       </div>
     </div>

@@ -127,6 +127,55 @@ async function getAccounts() {
   return mapSnapshot(snapshot);
 }
 
+async function resolveLogicalAccountId(correoId, platform, email) {
+  const fallback = buildAccountKey(platform, email);
+  const normalizedCorreoId = cleanString(correoId);
+  if (!normalizedCorreoId) return fallback;
+
+  const snapshot = await getDocs(query(collection(db, 'accounts'), where('correoId', '==', normalizedCorreoId)));
+  const match = snapshot.docs.find((item) => {
+    const data = item.data();
+    return cleanString(data?.plataforma || data?.platform).toUpperCase() === cleanString(platform).toUpperCase();
+  });
+
+  if (!match) return fallback;
+
+  const data = match.data();
+  return cleanString(data?.cuentaId || data?.accountId) || fallback;
+}
+
+async function ensureCorreoDocument(email, password = '', correoId = '') {
+  const normalizedEmail = cleanString(email).toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes('@')) return '';
+
+  const emailLower = normalizedEmail;
+  const existing = await getDocs(query(collection(db, 'correos'), where('emailLower', '==', emailLower)));
+  if (!existing.empty) {
+    const correoRef = existing.docs[0].ref;
+    const updates = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (cleanString(password)) {
+      updates.password = cleanString(password);
+    }
+
+    await setDoc(correoRef, updates, { merge: true });
+    return existing.docs[0].id;
+  }
+
+  const docId = cleanString(correoId) || buildCorreoKey(normalizedEmail);
+  await setDoc(doc(db, 'correos', docId), {
+    email: normalizedEmail,
+    emailLower,
+    password: cleanString(password),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  return docId;
+}
+
 async function generateUniqueClientId(nombre, telefono) {
   const cleanName = normalizeName(nombre);
   const prefix = cleanName.substring(0, 4).padEnd(4, 'X');
@@ -236,8 +285,10 @@ async function createSubscription(payload) {
   const startDate = formatDateISO(payload?.fechaInicio);
   const months = Number(payload?.meses);
   const email = cleanString(payload?.correo);
-  const correoId = buildCorreoKey(email);
-  const accountId = cleanString(payload?.cuentaId) || buildAccountKey(platform, email);
+  const incomingCorreoId = cleanString(payload?.correoId);
+  const ensuredCorreoId = email ? await ensureCorreoDocument(email, payload?.contrasena, incomingCorreoId) : '';
+  const correoId = ensuredCorreoId || incomingCorreoId || buildCorreoKey(email);
+  const accountId = cleanString(payload?.cuentaId) || await resolveLogicalAccountId(correoId, platform, email);
 
   if (!clientId || !platform || !startDate || !months) {
     throw new Error('Datos incompletos');
@@ -270,6 +321,8 @@ async function createSubscription(payload) {
     telefono: cleanString(client?.telefono || client?.phone),
     plataforma: platform,
     platform,
+    correo: email,
+    email,
     correoId,
     emailId: correoId,
     fechaInicio: startDate,
@@ -441,7 +494,9 @@ async function updateAccount(payload) {
   const subscriptionData = subscriptionSnapshot.exists() ? subscriptionSnapshot.data() : {};
   const platform = cleanString(subscriptionData?.plataforma || subscriptionData?.platform);
   const email = cleanString(payload?.correo);
-  const correoId = buildCorreoKey(email);
+  const incomingCorreoId = cleanString(payload?.correoId);
+  const ensuredCorreoId = email ? await ensureCorreoDocument(email, payload?.contrasena, incomingCorreoId) : '';
+  const correoId = ensuredCorreoId || incomingCorreoId || buildCorreoKey(email);
   const accountId = cleanString(payload?.cuentaId) || buildAccountKey(platform, email);
 
   await setDoc(
@@ -469,6 +524,10 @@ async function updateAccount(payload) {
   await updateDoc(doc(db, 'subscriptions', id), {
     cuentaId: accountId,
     accountId,
+    correo: email,
+    email,
+    correoId,
+    emailId: correoId,
     updatedAt: serverTimestamp(),
   });
 

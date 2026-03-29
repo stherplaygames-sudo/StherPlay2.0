@@ -289,6 +289,7 @@ function invalidate() {
   state.accountsCache = null;
   state.accountSummaries = null;
   state.correoSummaries = null;
+  state.correosCatalog = null;
   state.loadError = null;
 }
 

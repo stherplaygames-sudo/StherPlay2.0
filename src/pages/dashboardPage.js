@@ -38,6 +38,42 @@ function buildPlatformStats(subscriptions) {
   return Object.values(grouped).sort((a, b) => b.total - a.total || a.platform.localeCompare(b.platform));
 }
 
+function getPlatformBrandKey(platform) {
+  const key = String(platform || '').trim().toUpperCase();
+
+  if (key.includes('NETFLIX')) return 'netflix';
+  if (key.includes('SPOTIFY')) return 'spotify';
+  if (key.includes('DISNEY')) return 'disney';
+  if (key.includes('HBO')) return 'hbo';
+  if (key.includes('PRIME')) return 'prime';
+  if (key.includes('YOUTUBE')) return 'youtube';
+  if (key.includes('PARAMOUNT')) return 'paramount';
+  if (key.includes('CRUNCHY')) return 'crunchyroll';
+  if (key.includes('MAX')) return 'hbo';
+
+  return 'default';
+}
+
+function getPlatformLogoMarkup(platform) {
+  const brand = getPlatformBrandKey(platform);
+  const fallback = String(platform || '').trim().slice(0, 2).toUpperCase() || 'AP';
+  const label = String(platform || 'Plataforma');
+
+  const brandMarks = {
+    netflix: 'N',
+    spotify: 'S',
+    disney: 'D',
+    hbo: 'H',
+    prime: 'P',
+    youtube: 'Y',
+    paramount: 'P',
+    crunchyroll: 'C',
+    default: fallback,
+  };
+
+  return `<div class="platform-icon platform-logo is-${brand}" aria-label="${label}" title="${label}">${brandMarks[brand] || fallback}</div>`;
+}
+
 function buildAlerts(subscriptions) {
   const today = subscriptions.filter((item) => item.daysRemaining === 0).length;
   const tomorrow = subscriptions.filter((item) => item.daysRemaining === 1).length;
@@ -134,7 +170,7 @@ function renderPlatformStats(platformStats) {
     .map((item) => `
       <article class="platform-row">
         <div class="platform-main">
-          <div class="platform-icon">${item.platform.slice(0, 2).toUpperCase()}</div>
+          ${getPlatformLogoMarkup(item.platform)}
           <div>
             <h4>${item.platform}</h4>
             <p>${item.total} suscripciones</p>

@@ -4,6 +4,7 @@ const firebaseService = window.firebaseService;
 const plataformasService = window.plataformasService;
 const accountsService = window.accountsService;
 const cuentasSmart = window.cuentasSmart;
+const correosService = window.correosService;
 const { normalizarFechaISO, setButtonLoading, showToast } = window.appUtils;
 
 function statusClass(status) {
@@ -457,6 +458,7 @@ async function initPlataformaDropdown() {
     select.onchange = async () => {
       precioBaseInput.value = select.selectedOptions[0]?.dataset?.precio || '';
       await updateSuggestedAccount();
+      updateProfileSuggestions();
     };
   } catch (error) {
     console.error(error);
@@ -466,6 +468,153 @@ async function initPlataformaDropdown() {
   }
 }
 
+function hideCorreoSuggestions() {
+  const list = document.getElementById('correosList');
+  if (list) {
+    list.classList.add('hidden');
+  }
+}
+
+function renderCorreoSuggestions() {
+  const input = document.getElementById('subCorreo');
+  const passwordInput = document.getElementById('subContrasena');
+  const list = document.getElementById('correosList');
+  const items = Array.isArray(state.correosCatalog) ? state.correosCatalog : [];
+  if (!input || !list) return;
+
+  const value = String(input.value || '').trim().toLowerCase();
+  const selected = items.find((item) => String(item.email || '').toLowerCase() === value);
+  const filtered = value
+    ? items.filter((item) => String(item.email || '').toLowerCase().includes(value)).slice(0, 6)
+    : [];
+
+  input.dataset.correoId = selected?.id || '';
+  if (selected && !String(passwordInput?.value || '').trim() && selected.password) {
+    passwordInput.value = selected.password;
+  }
+
+  list.innerHTML = filtered
+    .map((item) => `<div data-correo-id="${item.id}">${item.email}</div>`)
+    .join('');
+
+  list.querySelectorAll('[data-correo-id]').forEach((node) => {
+    node.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      const picked = items.find((item) => item.id === node.dataset.correoId);
+      input.value = picked?.email || '';
+      input.dataset.correoId = picked?.id || '';
+      if (picked && !String(passwordInput?.value || '').trim() && picked.password) {
+        passwordInput.value = picked.password;
+      }
+      hideCorreoSuggestions();
+      updateProfileSuggestions();
+    });
+  });
+
+  list.classList.toggle('hidden', filtered.length === 0);
+}
+
+function bindCorreoSelection() {
+  const input = document.getElementById('subCorreo');
+  if (!input || input.dataset.bound === 'true') return;
+
+  input.dataset.bound = 'true';
+  input.addEventListener('input', () => {
+    hideProfileSuggestions();
+    renderCorreoSuggestions();
+  });
+  input.addEventListener('focus', () => {
+    renderCorreoSuggestions();
+  });
+  input.addEventListener('blur', () => {
+    window.setTimeout(() => {
+      hideCorreoSuggestions();
+    }, 120);
+  });
+}
+
+async function initCorreosCatalog() {
+  const input = document.getElementById('subCorreo');
+  const list = document.getElementById('correosList');
+  bindCorreoSelection();
+  if (!list) return;
+
+  try {
+    const correos = await correosService.getCorreosCatalog();
+    state.correosCatalog = correos;
+    if (String(input?.value || '').trim()) {
+      renderCorreoSuggestions();
+    } else {
+      hideCorreoSuggestions();
+    }
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = '';
+  }
+}
+
+function hideProfileSuggestions() {
+  const list = document.getElementById('perfilesList');
+  if (list) {
+    list.classList.add('hidden');
+  }
+}
+
+async function updateProfileSuggestions() {
+  const input = document.getElementById('subPerfil');
+  const list = document.getElementById('perfilesList');
+  const correoInput = document.getElementById('subCorreo');
+  const platformSelect = document.getElementById('subPlataforma');
+  if (!input || !list || !correoInput || !platformSelect) return;
+
+  const correo = String(correoInput.value || '').trim().toLowerCase();
+  const plataforma = String(platformSelect.value || '').trim().toUpperCase();
+  const maxProfiles = Number(platformSelect.selectedOptions[0]?.dataset?.perfiles || 0) || 0;
+
+  const data = await appCache.ensureData(false);
+  const existingProfiles = [...new Set(
+    (data?.subscriptions || [])
+      .filter((item) => {
+        const sameCorreo = String(item.correo || item.email || '').trim().toLowerCase() === correo;
+        const samePlatform = String(item.plataforma || '').trim().toUpperCase() === plataforma;
+        return sameCorreo && samePlatform && String(item.perfil || '').trim();
+      })
+      .map((item) => String(item.perfil || '').trim())
+  )];
+
+  const genericProfiles = Array.from(
+    { length: Math.max(maxProfiles, existingProfiles.length, 5) },
+    (_, index) => `Perfil ${index + 1}`
+  );
+
+  state.profileSuggestions = [...new Set([...existingProfiles, ...genericProfiles])];
+  const query = String(input?.value || '').trim().toLowerCase();
+  const filtered = (query
+    ? state.profileSuggestions.filter((item) => item.toLowerCase().includes(query))
+    : state.profileSuggestions
+  ).slice(0, 8);
+
+  list.innerHTML = filtered.map((item) => `<div data-profile="${item}">${item}</div>`).join('');
+  list.querySelectorAll('[data-profile]').forEach((node) => {
+    node.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      if (input) input.value = node.dataset.profile || '';
+      hideProfileSuggestions();
+    });
+  });
+  const shouldOpen = document.activeElement === input && filtered.length > 0;
+  list.classList.toggle('hidden', !shouldOpen);
+}
+
+
+function generarContrasenaSub() {
+  const passwordInput = document.getElementById('subContrasena');
+  if (!passwordInput) return;
+
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  passwordInput.value = pin;
+}
+
 function abrirCrearSub() {
   window.toggleSidebar?.(false);
   document.getElementById('modalCrearSub').classList.remove('hidden');
@@ -473,6 +622,25 @@ function abrirCrearSub() {
   cargarClientesSelect();
   initClienteAutocomplete();
   initPlataformaDropdown();
+  initCorreosCatalog();
+  hideCorreoSuggestions();
+  hideProfileSuggestions();
+
+  const profileInput = document.getElementById('subPerfil');
+  if (profileInput && profileInput.dataset.bound !== 'true') {
+    profileInput.dataset.bound = 'true';
+    profileInput.addEventListener('input', () => {
+      updateProfileSuggestions();
+    });
+    profileInput.addEventListener('focus', () => {
+      updateProfileSuggestions();
+    });
+    profileInput.addEventListener('blur', () => {
+      window.setTimeout(() => {
+        hideProfileSuggestions();
+      }, 120);
+    });
+  }
 }
 
 async function initEditPlataformaDropdown(selectedValue = '') {
@@ -532,6 +700,7 @@ async function guardarSuscripcion() {
     meses: document.getElementById('subMeses').value,
     precioBase: document.getElementById('subPrecioBase').value,
     correo: document.getElementById('subCorreo').value.trim(),
+    correoId: document.getElementById('subCorreo').dataset.correoId || '',
     perfil: document.getElementById('subPerfil').value.trim(),
     contrasena: document.getElementById('subContrasena').value.trim(),
   };
@@ -539,7 +708,7 @@ async function guardarSuscripcion() {
   const precioFinal = document.getElementById('subPrecioFinal').value.trim();
   if (precioFinal) payload.precioFinal = precioFinal;
 
-  if (!payload.cliente || !payload.plataforma || !payload.fechaInicio || !payload.meses) {
+  if (!payload.cliente || !payload.plataforma || !payload.fechaInicio || !payload.meses || !payload.correo) {
     showToast('Completa los campos obligatorios', 'error');
     return;
   }
@@ -580,7 +749,10 @@ function limpiarCrearSub() {
   const correoInput = document.getElementById('subCorreo');
   if (correoInput) {
     correoInput.dataset.cuentaId = '';
+    correoInput.dataset.correoId = '';
   }
+  hideCorreoSuggestions();
+  hideProfileSuggestions();
   renderSuggestedAccount(null);
   state.clienteSeleccionadoId = null;
 }
@@ -868,6 +1040,10 @@ window.abrirEliminarSuscripcion = abrirEliminarSuscripcion;
 window.cerrarEliminarSuscripcion = cerrarEliminarSuscripcion;
 window.confirmarEliminarSuscripcion = confirmarEliminarSuscripcion;
 window.abrirWhatsAppSuscripcion = abrirWhatsAppSuscripcion;
+window.generarContrasenaSub = generarContrasenaSub;
+
+
+
 
 
 

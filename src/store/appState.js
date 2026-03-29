@@ -16,6 +16,7 @@
   accountsPlatformFilter: 'TODAS',
   correosQuery: '',
   correoSummaries: null,
+  correosCatalog: null,
   loadError: null,
   suscripcionARenovar: null,
   suscripcionAEliminar: null,

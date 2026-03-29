@@ -639,7 +639,7 @@ select:focus {
   top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: 40;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--line-strong);
@@ -1250,6 +1250,60 @@ select:focus {
   font-weight: 800;
 }
 
+.platform-logo {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.platform-logo.is-netflix {
+  background: linear-gradient(180deg, #2a0e16, #111827);
+  color: #e50914;
+}
+
+.platform-logo.is-spotify {
+  background: linear-gradient(180deg, #103321, #111827);
+  color: #1ed760;
+}
+
+.platform-logo.is-disney {
+  background: linear-gradient(180deg, #0f2746, #111827);
+  color: #7dd3fc;
+}
+
+.platform-logo.is-hbo {
+  background: linear-gradient(180deg, #1f1637, #111827);
+  color: #c4b5fd;
+}
+
+.platform-logo.is-prime {
+  background: linear-gradient(180deg, #0d2d4a, #111827);
+  color: #38bdf8;
+}
+
+.platform-logo.is-youtube {
+  background: linear-gradient(180deg, #3b1117, #111827);
+  color: #ff4d4d;
+}
+
+.platform-logo.is-paramount {
+  background: linear-gradient(180deg, #102a4c, #111827);
+  color: #93c5fd;
+}
+
+.platform-logo.is-crunchyroll {
+  background: linear-gradient(180deg, #3c1d08, #111827);
+  color: #f97316;
+}
+
+.platform-logo.is-default {
+  background: linear-gradient(180deg, rgba(191, 219, 254, 0.2), rgba(96, 165, 250, 0.16));
+  color: #dbeafe;
+}
+
 .platform-stats {
   display: flex;
   flex-wrap: wrap;
@@ -1771,4 +1825,28 @@ select:focus {
 
 .correo-meta-line {
   margin-top: 0;
+}
+
+.input-with-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.mini-icon-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(59, 130, 246, 0.14);
+  color: #dbeafe;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.18);
+}
+
+.mini-icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.26);
 }
