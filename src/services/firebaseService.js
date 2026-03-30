@@ -1,6 +1,7 @@
 ﻿import {
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -74,6 +75,16 @@ function formatDateISO(value) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function normalizeBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = cleanString(value).toLowerCase();
+    if (['true', '1', 'si', 's?', 'yes'].includes(normalized)) return true;
+    if (['false', '0', 'no'].includes(normalized)) return false;
+  }
+  return fallback;
 }
 
 function addMonthsSafe(baseDate, months) {
@@ -174,6 +185,96 @@ async function ensureCorreoDocument(email, password = '', correoId = '') {
   }, { merge: true });
 
   return docId;
+}
+
+async function getAccountMetaByAccountId(accountId) {
+  const id = cleanString(accountId);
+  if (!id) return null;
+
+  const directSnapshot = await getDoc(doc(db, 'accounts', id));
+  if (!directSnapshot.exists()) return null;
+
+  const data = directSnapshot.data();
+  const sameLogicalAccount =
+    cleanString(data?.cuentaId || data?.accountId || directSnapshot.id) === id;
+
+  if (!sameLogicalAccount) return null;
+
+  return {
+    id: directSnapshot.id,
+    cuentaId: id,
+    accountId: id,
+    correo: cleanString(data?.correo || data?.email),
+    email: cleanString(data?.email || data?.correo),
+    correoId: cleanString(data?.correoId || data?.emailId),
+    plataforma: cleanString(data?.plataforma || data?.platform),
+    platform: cleanString(data?.platform || data?.plataforma),
+    perfilesMax: Number(data?.perfiles_max ?? data?.profiles_max ?? data?.maxProfiles ?? 0) || 0,
+    renewalDate: formatDateISO(data?.renewalDate),
+    renewalPrice: Number(data?.renewalPrice ?? data?.renewal_price ?? data?.costoRenovacion ?? 0) || 0,
+    autoRenew: normalizeBoolean(data?.autoRenew, false),
+    notes: cleanString(data?.notes),
+  };
+}
+
+async function updateAccountMeta(payload) {
+  const accountId = cleanString(payload?.cuentaId || payload?.accountId);
+  if (!accountId) throw new Error('Cuenta ID requerido');
+
+  const existingMeta = await getAccountMetaByAccountId(accountId);
+  const email = cleanString(payload?.correo || payload?.email || existingMeta?.correo);
+  const platform = cleanString(payload?.plataforma || payload?.platform || existingMeta?.plataforma).toUpperCase();
+  const correoId = cleanString(payload?.correoId || payload?.emailId || existingMeta?.correoId) || buildCorreoKey(email);
+
+  const hasProfilesMax = payload?.perfilesMax !== undefined || payload?.perfiles_max !== undefined || payload?.profiles_max !== undefined;
+  const perfilesMax = hasProfilesMax
+    ? Number(payload?.perfilesMax ?? payload?.perfiles_max ?? payload?.profiles_max ?? 0) || 0
+    : Number(existingMeta?.perfilesMax || 0) || 0;
+
+  const hasRenewalPrice = payload?.renewalPrice !== undefined || payload?.renewal_price !== undefined || payload?.costoRenovacion !== undefined;
+  const renewalPrice = hasRenewalPrice
+    ? Number(payload?.renewalPrice ?? payload?.renewal_price ?? payload?.costoRenovacion ?? 0) || 0
+    : Number(existingMeta?.renewalPrice || 0) || 0;
+
+  const hasRenewalDate = payload?.renewalDate !== undefined;
+  const renewalDate = hasRenewalDate
+    ? formatDateISO(payload?.renewalDate)
+    : formatDateISO(existingMeta?.renewalDate);
+
+  const hasAutoRenew = payload?.autoRenew !== undefined;
+  const autoRenew = hasAutoRenew
+    ? normalizeBoolean(payload?.autoRenew, false)
+    : normalizeBoolean(existingMeta?.autoRenew, false);
+
+  const notes = payload?.notes !== undefined ? cleanString(payload?.notes) : cleanString(existingMeta?.notes);
+
+  await setDoc(
+    doc(db, 'accounts', accountId),
+    {
+      id: accountId,
+      cuentaId: accountId,
+      accountId,
+      correo: email,
+      email,
+      correoId,
+      emailId: correoId,
+      plataforma: platform,
+      platform,
+      perfiles_max: perfilesMax,
+      profiles_max: perfilesMax,
+      maxProfiles: perfilesMax,
+      renewalDate,
+      renewalPrice,
+      autoRenew,
+      notes,
+      source: 'firebase',
+      sourceType: 'accountMeta',
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return { ok: true, cuentaId: accountId };
 }
 
 async function generateUniqueClientId(nombre, telefono) {
@@ -371,6 +472,27 @@ async function createSubscription(payload) {
   const batch = writeBatch(db);
   batch.set(doc(db, 'subscriptions', subscriptionId), subscriptionPayload);
   batch.set(doc(db, 'accounts', subscriptionId), accountPayload, { merge: true });
+  batch.set(doc(db, 'accounts', accountId), {
+    id: accountId,
+    cuentaId: accountId,
+    accountId,
+    correo: email,
+    email,
+    correoId,
+    emailId: correoId,
+    plataforma: platform,
+    platform,
+    perfiles_max: Number(payload?.perfilesMax ?? payload?.profiles_max ?? 0) || 0,
+    profiles_max: Number(payload?.perfilesMax ?? payload?.profiles_max ?? 0) || 0,
+    maxProfiles: Number(payload?.perfilesMax ?? payload?.profiles_max ?? 0) || 0,
+    renewalDate: '',
+    renewalPrice: 0,
+    autoRenew: false,
+    notes: '',
+    source: 'firebase',
+    sourceType: 'accountMeta',
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
   await batch.commit();
 
   return { ok: true, idSuscripcion: subscriptionId, cuentaId: accountId };
@@ -384,9 +506,10 @@ async function getSubscriptionById(subscriptionId) {
   if (!snapshot.exists()) throw new Error('Suscripcion no encontrada');
 
   const data = snapshot.data();
+  const relatedAccount = await getAccountBySubscriptionId(id);
   return {
     idSuscripcion: id,
-    cuentaId: cleanString(data?.cuentaId || data?.accountId),
+    cuentaId: cleanString(data?.cuentaId || data?.accountId || relatedAccount?.cuentaId),
     plataforma: cleanString(data?.plataforma || data?.platform),
     inicio: formatDateISO(data?.fechaInicio || data?.startDate),
     vencimiento: formatDateISO(data?.fechaVencimiento || data?.expireDate),
@@ -395,6 +518,10 @@ async function getSubscriptionById(subscriptionId) {
       data?.estado || data?.status
     ),
     precioFinal: data?.precioFinal ?? data?.precio ?? data?.price ?? '',
+    correo: cleanString(data?.correo || data?.email || relatedAccount?.correo),
+    correoId: cleanString(data?.correoId || data?.emailId),
+    perfil: cleanString(data?.perfil || data?.profile || relatedAccount?.perfil),
+    pin: cleanString(data?.pin || data?.contrasena || data?.password || relatedAccount?.contrasena),
   };
 }
 
@@ -408,16 +535,27 @@ async function updateSubscription(payload) {
   const expireDate = formatDateISO(payload?.vencimiento);
   const explicitStatus = cleanString(payload?.estado).toUpperCase();
   const finalPrice = cleanString(payload?.precioFinal);
+  const email = cleanString(payload?.correo || existing.correo);
+  const profile = cleanString(payload?.perfil || existing.perfil);
+  const pin = cleanString(payload?.pin || existing.pin);
+  const incomingCorreoId = cleanString(payload?.correoId || existing.correoId);
+  const ensuredCorreoId = email ? await ensureCorreoDocument(email, pin, incomingCorreoId) : '';
+  const correoId = ensuredCorreoId || incomingCorreoId || buildCorreoKey(email);
+  const accountId = cleanString(payload?.cuentaId) || existing.cuentaId || buildAccountKey(platform, email);
   const status = deriveSubscriptionStatus(expireDate, explicitStatus);
   const daysRemaining = calculateDaysRemaining(expireDate);
 
   if (!platform) throw new Error('Plataforma requerida');
 
   const updatePayload = {
-    cuentaId: cleanString(payload?.cuentaId) || existing.cuentaId || '',
-    accountId: cleanString(payload?.cuentaId) || existing.cuentaId || '',
+    cuentaId: accountId,
+    accountId,
     plataforma: platform,
     platform,
+    correo: email,
+    email,
+    correoId,
+    emailId: correoId,
     fechaInicio: startDate,
     startDate,
     fechaVencimiento: expireDate,
@@ -426,6 +564,11 @@ async function updateSubscription(payload) {
     daysRemaining,
     estado: status,
     status,
+    perfil: profile,
+    profile,
+    pin,
+    contrasena: pin,
+    password: pin,
     updatedAt: serverTimestamp(),
   };
 
@@ -438,15 +581,24 @@ async function updateSubscription(payload) {
 
   await updateDoc(doc(db, 'subscriptions', id), updatePayload);
 
-  const accountRef = doc(db, 'accounts', id);
-  const accountSnapshot = await getDoc(accountRef);
-  if (accountSnapshot.exists()) {
-    await updateDoc(accountRef, {
-      plataforma: platform,
-      platform,
-      updatedAt: serverTimestamp(),
-    });
-  }
+  await setDoc(doc(db, 'accounts', id), {
+    id,
+    idSuscripcion: id,
+    subscriptionId: id,
+    cuentaId: accountId,
+    accountId,
+    plataforma: platform,
+    platform,
+    correoId,
+    emailId: correoId,
+    correo: email,
+    email,
+    perfil: profile,
+    profile,
+    contrasena: pin,
+    password: pin,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 
   return { ok: true };
 }
@@ -458,11 +610,18 @@ async function getAccountBySubscriptionId(subscriptionId) {
   const directSnapshot = await getDoc(doc(db, 'accounts', id));
   if (directSnapshot.exists()) {
     const data = directSnapshot.data();
+    const logicalAccountId = cleanString(data?.cuentaId || data?.accountId);
+    const meta = await getAccountMetaByAccountId(logicalAccountId);
     return {
-      cuentaId: cleanString(data?.cuentaId || data?.accountId),
-      correo: cleanString(data?.correo || data?.email),
+      cuentaId: logicalAccountId,
+      correo: cleanString(meta?.correo || data?.correo || data?.email),
       perfil: cleanString(data?.perfil || data?.profile),
       contrasena: cleanString(data?.contrasena || data?.password),
+      renewalDate: cleanString(meta?.renewalDate),
+      renewalPrice: Number(meta?.renewalPrice || 0) || 0,
+      autoRenew: Boolean(meta?.autoRenew),
+      notes: cleanString(meta?.notes),
+      perfilesMax: Number(meta?.perfilesMax || 0) || 0,
     };
   }
 
@@ -478,11 +637,18 @@ async function getAccountBySubscriptionId(subscriptionId) {
   }
 
   const data = accountDoc.data();
+  const logicalAccountId = cleanString(data?.cuentaId || data?.accountId);
+  const meta = await getAccountMetaByAccountId(logicalAccountId);
   return {
-    cuentaId: cleanString(data?.cuentaId || data?.accountId),
-    correo: cleanString(data?.correo || data?.email),
+    cuentaId: logicalAccountId,
+    correo: cleanString(meta?.correo || data?.correo || data?.email),
     perfil: cleanString(data?.perfil || data?.profile),
     contrasena: cleanString(data?.contrasena || data?.password),
+    renewalDate: cleanString(meta?.renewalDate),
+    renewalPrice: Number(meta?.renewalPrice || 0) || 0,
+    autoRenew: Boolean(meta?.autoRenew),
+    notes: cleanString(meta?.notes),
+    perfilesMax: Number(meta?.perfilesMax || 0) || 0,
   };
 }
 
@@ -521,6 +687,18 @@ async function updateAccount(payload) {
     { merge: true }
   );
 
+  await updateAccountMeta({
+    cuentaId: accountId,
+    correo: email,
+    correoId,
+    plataforma: platform,
+    perfilesMax: payload?.perfilesMax ?? payload?.profiles_max ?? 0,
+    renewalDate: payload?.renewalDate,
+    renewalPrice: payload?.renewalPrice,
+    autoRenew: payload?.autoRenew,
+    notes: payload?.notes,
+  });
+
   await updateDoc(doc(db, 'subscriptions', id), {
     cuentaId: accountId,
     accountId,
@@ -528,6 +706,11 @@ async function updateAccount(payload) {
     email,
     correoId,
     emailId: correoId,
+    perfil: cleanString(payload?.perfil),
+    profile: cleanString(payload?.perfil),
+    pin: cleanString(payload?.contrasena),
+    contrasena: cleanString(payload?.contrasena),
+    password: cleanString(payload?.contrasena),
     updatedAt: serverTimestamp(),
   });
 
@@ -570,6 +753,14 @@ async function renewSubscription(subscriptionId, months) {
     updatedAt: serverTimestamp(),
   });
 
+  return { ok: true };
+}
+
+async function deleteCorreo(correoId) {
+  const id = cleanString(correoId);
+  if (!id) throw new Error('Correo ID requerido');
+
+  await deleteDoc(doc(db, 'correos', id));
   return { ok: true };
 }
 
@@ -684,6 +875,9 @@ window.firebaseService = {
   updateSubscription,
   getAccountBySubscriptionId,
   updateAccount,
+  getAccountMetaByAccountId,
+  updateAccountMeta,
+  deleteCorreo,
   suspendSubscription,
   renewSubscription,
   deleteSubscriptionCascade,
@@ -704,6 +898,9 @@ export {
   updateSubscription,
   getAccountBySubscriptionId,
   updateAccount,
+  getAccountMetaByAccountId,
+  updateAccountMeta,
+  deleteCorreo,
   suspendSubscription,
   renewSubscription,
   deleteSubscriptionCascade,

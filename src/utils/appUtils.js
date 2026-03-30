@@ -32,20 +32,25 @@ function showToast(message, type = 'success', duration = 2500) {
   }, duration);
 }
 
-function setButtonLoading(btn, loading, label = 'Guardar') {
+function setButtonLoading(btn, loading, label = 'Guardando') {
   if (!btn) return;
+
+  const loadingText = label || btn.dataset.loadingLabel || 'Guardando';
+  const isIconMode = btn.dataset.loadingMode === 'icon' || btn.classList.contains('small-icon') || btn.classList.contains('mini-icon-btn');
 
   if (loading) {
     btn.disabled = true;
     btn.classList.add('btn-loading');
     btn.dataset.label = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner"></span> Guardando';
+    btn.innerHTML = isIconMode
+      ? '<span class="spinner"></span>'
+      : '<span class="spinner"></span> ' + loadingText;
     return;
   }
 
   btn.disabled = false;
   btn.classList.remove('btn-loading');
-  btn.innerHTML = btn.dataset.label || label;
+  btn.innerHTML = btn.dataset.label || btn.innerHTML;
 }
 
 window.appUtils = {

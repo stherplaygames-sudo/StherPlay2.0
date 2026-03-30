@@ -772,6 +772,9 @@ async function abrirEditarSuscripcion(id) {
     document.getElementById('editVencimiento').value = item.vencimiento;
     document.getElementById('editEstado').value = item.estado;
     document.getElementById('editPrecioFinal').value = item.precioFinal || '';
+    document.getElementById('editCorreoSub').value = item.correo || '';
+    document.getElementById('editPerfilSub').value = item.perfil || '';
+    document.getElementById('editPinSub').value = item.pin || '';
     document.getElementById('modalEditarSub').classList.remove('hidden');
   } catch (error) {
     console.error(error);
@@ -788,6 +791,9 @@ async function confirmarEditarSub() {
     vencimiento: document.getElementById('editVencimiento').value,
     estado: document.getElementById('editEstado').value,
     precioFinal: document.getElementById('editPrecioFinal').value,
+    correo: document.getElementById('editCorreoSub').value.trim(),
+    perfil: document.getElementById('editPerfilSub').value.trim(),
+    pin: document.getElementById('editPinSub').value.trim(),
   };
 
   if (!payload.plataforma) {
@@ -813,6 +819,12 @@ async function confirmarEditarSub() {
   }
 }
 
+function generarPinEditarSub() {
+  const input = document.getElementById('editPinSub');
+  if (!input) return;
+  input.value = String(Math.floor(1000 + Math.random() * 9000));
+}
+
 function cerrarEditarSub() {
   document.getElementById('modalEditarSub').classList.add('hidden');
   state.suscripcionEditando = null;
@@ -825,7 +837,14 @@ async function abrirEditarCuenta(idSuscripcion) {
     const cuenta = await firebaseService.getAccountBySubscriptionId(idSuscripcion);
     document.getElementById('editCorreo').value = cuenta.correo;
     document.getElementById('editPerfil').value = cuenta.perfil;
+    document.getElementById('editPerfil').disabled = false;
+    document.getElementById('editPerfil').placeholder = 'Profile 1';
     document.getElementById('editContrasena').value = cuenta.contrasena;
+    document.getElementById('editRenewalDate').value = cuenta.renewalDate || '';
+    document.getElementById('editRenewalPrice').value = cuenta.renewalPrice || '';
+    document.getElementById('editAutoRenew').checked = Boolean(cuenta.autoRenew);
+    document.getElementById('editAccountNotes').value = cuenta.notes || '';
+    state.cuentaEditandoEsGeneral = false;
     document.getElementById('modalEditarCuenta').classList.remove('hidden');
   } catch (error) {
     console.error(error);
@@ -834,12 +853,20 @@ async function abrirEditarCuenta(idSuscripcion) {
 }
 
 async function confirmarEditarCuenta() {
+  if (state.cuentaEditandoEsGeneral) {
+    return window.confirmarEditarCuentaGeneral?.();
+  }
+
   const btn = document.querySelector('#modalEditarCuenta .btn-save');
   const payload = {
     idSuscripcion: state.cuentaEditando,
     correo: document.getElementById('editCorreo').value,
     perfil: document.getElementById('editPerfil').value,
     contrasena: document.getElementById('editContrasena').value,
+    renewalDate: document.getElementById('editRenewalDate').value,
+    renewalPrice: document.getElementById('editRenewalPrice').value,
+    autoRenew: document.getElementById('editAutoRenew').checked,
+    notes: document.getElementById('editAccountNotes').value.trim(),
   };
 
   try {
@@ -851,7 +878,11 @@ async function confirmarEditarCuenta() {
     await Promise.all([
       window.searchPage?.refreshClientsView?.(true),
       refreshSubscriptionsView(true),
+      window.accountsPage?.refreshAccountsView?.(true),
+      window.plataformasPage?.refreshPlatformsView?.(true),
+      window.correosPage?.refreshCorreosView?.(true),
     ]);
+    window.dashboardPage?.refreshDashboard?.();
   } catch (error) {
     console.error(error);
     showToast(error?.message || 'Error al guardar la cuenta', 'error');
@@ -862,7 +893,13 @@ async function confirmarEditarCuenta() {
 
 function cerrarEditarCuenta() {
   document.getElementById('modalEditarCuenta').classList.add('hidden');
+  const perfilInput = document.getElementById('editPerfil');
+  if (perfilInput) {
+    perfilInput.disabled = false;
+    perfilInput.placeholder = 'Profile 1';
+  }
   state.cuentaEditando = null;
+  state.cuentaEditandoEsGeneral = false;
 }
 
 function abrirDarDeBaja(idSuscripcion) {
@@ -1041,6 +1078,7 @@ window.cerrarEliminarSuscripcion = cerrarEliminarSuscripcion;
 window.confirmarEliminarSuscripcion = confirmarEliminarSuscripcion;
 window.abrirWhatsAppSuscripcion = abrirWhatsAppSuscripcion;
 window.generarContrasenaSub = generarContrasenaSub;
+window.generarPinEditarSub = generarPinEditarSub;
 
 
 

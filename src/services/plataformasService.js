@@ -13,6 +13,7 @@ import { db } from '../firebase/firebaseConfig.js';
 
 const plataformasRef = collection(db, 'plataformas');
 const subscriptionsRef = collection(db, 'subscriptions');
+const PLATFORM_CACHE_KEY = 'sther-platforms-cache-v1';
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -44,6 +45,36 @@ function normalizePlatform(item) {
   };
 }
 
+function loadPlatformsCache() {
+  try {
+    const raw = localStorage.getItem(PLATFORM_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map(normalizePlatform).filter((item) => item.id || item.nombre);
+  } catch (error) {
+    console.warn('No se pudo leer cache de plataformas:', error);
+    return null;
+  }
+}
+
+function savePlatformsCache(items) {
+  try {
+    localStorage.setItem(PLATFORM_CACHE_KEY, JSON.stringify(items || []));
+  } catch (error) {
+    console.warn('No se pudo guardar cache de plataformas:', error);
+  }
+}
+
+function clearPlatformsCache() {
+  window.appState.platformsCatalogCache = null;
+  try {
+    localStorage.removeItem(PLATFORM_CACHE_KEY);
+  } catch (error) {
+    console.warn('No se pudo limpiar cache de plataformas:', error);
+  }
+}
+
 function getPlatformNameFromSubscription(item) {
   return cleanString(item?.plataforma || item?.platform);
 }
@@ -52,14 +83,30 @@ function getPlatformPriceFromSubscription(item) {
   return Number(item?.precioBase ?? item?.priceBase ?? item?.precio ?? item?.price ?? item?.precioFinal ?? 0) || 0;
 }
 
-async function getPlataformas() {
+async function getPlataformas(force = false) {
+  if (!force && Array.isArray(window.appState.platformsCatalogCache)) {
+    return window.appState.platformsCatalogCache;
+  }
+
+  if (!force) {
+    const snapshot = loadPlatformsCache();
+    if (snapshot) {
+      window.appState.platformsCatalogCache = snapshot;
+      return snapshot;
+    }
+  }
+
   const snapshot = await getDocs(query(plataformasRef, orderBy('nombre')));
-  return snapshot.docs.map((docItem) =>
+  const items = snapshot.docs.map((docItem) =>
     normalizePlatform({
       id: docItem.id,
       ...docItem.data(),
     })
   );
+
+  window.appState.platformsCatalogCache = items;
+  savePlatformsCache(items);
+  return items;
 }
 
 async function createPlataforma(payload) {
@@ -73,12 +120,12 @@ async function createPlataforma(payload) {
   if (precioBase < 0) throw new Error('Costo mensual invalido');
 
   const slug = normalizeSlug(nombre);
-  const existentes = await getPlataformas();
+  const existentes = await getPlataformas(false);
   if (existentes.some((item) => normalizeSlug(item.nombre) === slug)) {
     throw new Error('Ya existe una plataforma con ese nombre');
   }
 
-  return addDoc(plataformasRef, {
+  const created = await addDoc(plataformasRef, {
     nombre,
     name: nombre,
     perfiles,
@@ -90,6 +137,9 @@ async function createPlataforma(payload) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  clearPlatformsCache();
+  return created;
 }
 
 async function updatePlataforma(id, payload) {
@@ -105,7 +155,7 @@ async function updatePlataforma(id, payload) {
   if (precioBase < 0) throw new Error('Costo mensual invalido');
 
   const slug = normalizeSlug(nombre);
-  const existentes = await getPlataformas();
+  const existentes = await getPlataformas(false);
   if (existentes.some((item) => item.id !== platformId && normalizeSlug(item.nombre) === slug)) {
     throw new Error('Ya existe una plataforma con ese nombre');
   }
@@ -121,16 +171,19 @@ async function updatePlataforma(id, payload) {
     activo,
     updatedAt: serverTimestamp(),
   });
+
+  clearPlatformsCache();
 }
 
 async function deletePlataforma(id) {
   const platformId = cleanString(id);
   if (!platformId) throw new Error('ID requerido');
   await deleteDoc(doc(db, 'plataformas', platformId));
+  clearPlatformsCache();
 }
 
 async function importPlataformasFromSubscriptions(defaultPerfiles = 5, subscriptionsInput = null) {
-  const existentes = await getPlataformas();
+  const existentes = await getPlataformas(false);
   const existingSlugs = new Set(existentes.map((item) => normalizeSlug(item.nombre)));
 
   let subscriptions = Array.isArray(subscriptionsInput) ? subscriptionsInput : null;
@@ -184,6 +237,10 @@ async function importPlataformasFromSubscriptions(defaultPerfiles = 5, subscript
     created += 1;
   }
 
+  if (created > 0) {
+    clearPlatformsCache();
+  }
+
   return { created, totalDetectadas: grouped.size };
 }
 
@@ -193,6 +250,7 @@ window.plataformasService = {
   updatePlataforma,
   deletePlataforma,
   importPlataformasFromSubscriptions,
+  clearPlatformsCache,
 };
 
-export { getPlataformas, createPlataforma, updatePlataforma, deletePlataforma, importPlataformasFromSubscriptions };
+export { getPlataformas, createPlataforma, updatePlataforma, deletePlataforma, importPlataformasFromSubscriptions, clearPlatformsCache };

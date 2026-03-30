@@ -1,7 +1,7 @@
 ﻿const state = window.appState;
 const firebaseService = window.firebaseService;
 
-const CACHE_STORAGE_KEY = 'sther-play-cache-v1';
+const CACHE_STORAGE_KEY = 'sther-play-cache-v2';
 
 function formatDate(value) {
   if (!value) return '';
@@ -192,16 +192,20 @@ function applyCacheSnapshot(snapshot) {
     estado: item.estadoCliente,
     saldo: item.saldo,
   }));
+  const rawAccounts = Array.isArray(snapshot?.rawAccounts) ? snapshot.rawAccounts : [];
 
   state.clientSummaries = clients;
   state.subscriptionRecords = subscriptions;
   state.accountsCache = accounts;
+  state.rawAccountsCache = rawAccounts;
   state.clientesCache = rawClients;
+  window.updateSyncStatus?.();
 
   return {
     clients,
     subscriptions,
     accounts,
+    rawAccounts,
   };
 }
 
@@ -211,7 +215,17 @@ async function ensureData(force = false) {
       clients: state.clientSummaries,
       subscriptions: state.subscriptionRecords,
       accounts: state.accountsCache || [],
+      rawAccounts: state.rawAccountsCache || [],
     };
+  }
+
+  if (!force) {
+    const snapshot = loadCacheSnapshot();
+    if (snapshot) {
+      state.loadError = null;
+      state.lastSyncAt = snapshot.updatedAt || null;
+      return applyCacheSnapshot(snapshot);
+    }
   }
 
   try {
@@ -233,6 +247,7 @@ async function ensureData(force = false) {
 
     state.clientesCache = clients;
     state.accountsCache = accounts;
+    state.rawAccountsCache = rawAccounts;
 
     const subscriptionsByClient = clients.map((client) => ({
       client,
@@ -254,31 +269,37 @@ async function ensureData(force = false) {
     state.clientSummaries = clientSummaries;
     state.subscriptionRecords = subscriptionRecords;
     state.lastSyncAt = Date.now();
+    window.updateSyncStatus?.();
 
     saveCacheSnapshot({
       clients: clientSummaries,
       subscriptions: subscriptionRecords,
       accounts,
       rawClients: clients,
+      rawAccounts,
     });
 
     return {
       clients: clientSummaries,
       subscriptions: subscriptionRecords,
       accounts,
+      rawAccounts,
     };
   } catch (error) {
     const snapshot = loadCacheSnapshot();
     if (snapshot) {
       state.loadError = 'Sin conexion. Mostrando datos guardados.';
       state.lastSyncAt = snapshot.updatedAt || null;
+      window.updateSyncStatus?.();
       return applyCacheSnapshot(snapshot);
     }
 
     state.clientSummaries = [];
     state.subscriptionRecords = [];
     state.accountsCache = [];
+    state.rawAccountsCache = [];
     state.loadError = toLoadErrorMessage(error);
+    window.updateSyncStatus?.();
     throw error;
   }
 }
@@ -287,10 +308,12 @@ function invalidate() {
   state.clientSummaries = null;
   state.subscriptionRecords = null;
   state.accountsCache = null;
+  state.rawAccountsCache = null;
   state.accountSummaries = null;
   state.correoSummaries = null;
   state.correosCatalog = null;
   state.loadError = null;
+  window.updateSyncStatus?.();
 }
 
 function getClientById(clientId) {

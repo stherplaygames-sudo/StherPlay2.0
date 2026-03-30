@@ -1850,3 +1850,238 @@ select:focus {
   transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(2, 6, 23, 0.26);
 }
+
+.correo-actions-row .slim-btn {
+  flex: 1 1 120px;
+}
+
+.correo-password-row {
+  margin-top: 0.55rem;
+}
+
+.password-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.password-display {
+  margin: 0;
+}
+
+.password-toggle-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 2500;
+  min-width: min(92vw, 320px);
+  max-width: min(92vw, 420px);
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  font-weight: 700;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast.success {
+  border-color: rgba(34, 197, 94, 0.28);
+  color: #bbf7d0;
+}
+
+.toast.error {
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+}
+
+.btn-loading {
+  opacity: 0.82;
+  cursor: wait;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #ffffff;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+.close-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.close-btn:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.24);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  line-height: 1;
+}
+
+.icon-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.topbar-icon .icon-svg,
+.filter-icon-btn .icon-svg,
+.close-btn .icon-svg,
+.mini-icon-btn .icon-svg,
+.icon-button .icon-svg,
+.delete-icon-btn .icon-svg {
+  width: 20px;
+  height: 20px;
+}
+
+.search-icon.icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.metric-card.info {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(180deg, rgba(17, 36, 71, 0.92), rgba(17, 24, 39, 0.96));
+}
+
+.metric-card.soft-danger {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.account-card-statuses {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.badge-sobrecargada {
+  background: rgba(153, 27, 27, 0.24);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.account-renewal-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.account-renewal-card > div {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.48);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.account-renewal-card strong {
+  font-size: 0.8rem;
+  opacity: 0.82;
+}
+
+.account-renewal-card span {
+  font-weight: 700;
+}
+
+.account-renewal-card.status-warning > div {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.account-renewal-card.status-danger > div {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+@media (max-width: 720px) {
+  .account-renewal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .account-card-statuses {
+    justify-content: flex-start;
+  }
+}
+
+.sync-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.72rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.sync-banner.is-offline {
+  border-color: rgba(245, 158, 11, 0.28);
+  color: #fde68a;
+}
+
+.sync-banner.is-fresh {
+  border-color: rgba(34, 197, 94, 0.24);
+  color: #bbf7d0;
+}
+
+.sync-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #94a3b8;
+  flex: 0 0 10px;
+}
+
+.sync-banner.is-offline .sync-dot {
+  background: #f59e0b;
+}
+
+.sync-banner.is-fresh .sync-dot {
+  background: #22c55e;
+}

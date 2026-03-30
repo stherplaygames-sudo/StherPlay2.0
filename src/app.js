@@ -27,20 +27,64 @@ function goToDashboard() {
   setActiveView('dashboard');
 }
 
+function formatSyncTime(timestamp) {
+  if (!timestamp) return '';
+  try {
+    return new Date(timestamp).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' });
+  } catch (error) {
+    return '';
+  }
+}
+
+function updateSyncStatus() {
+  const banner = document.getElementById('syncBanner');
+  const textNode = document.getElementById('syncStatusText');
+  if (!banner || !textNode) return;
+
+  banner.classList.remove('is-offline', 'is-fresh');
+
+  if (state.isOffline) {
+    banner.classList.add('is-offline');
+    const time = formatSyncTime(state.lastSyncAt);
+    textNode.textContent = time
+      ? `Sin internet. Usando datos guardados de las ${time}`
+      : 'Sin internet. Usando datos guardados';
+    return;
+  }
+
+  if (state.loadError) {
+    banner.classList.add('is-offline');
+    const time = formatSyncTime(state.lastSyncAt);
+    textNode.textContent = time
+      ? `${state.loadError}. Ultima sincronizacion ${time}`
+      : state.loadError;
+    return;
+  }
+
+  const time = formatSyncTime(state.lastSyncAt);
+  banner.classList.add('is-fresh');
+  textNode.textContent = time
+    ? `Datos guardados localmente. Ultima sincronizacion ${time}`
+    : 'Datos listos. Esperando primera sincronizacion';
+}
+
 async function refreshAppData() {
   const button = document.getElementById('refreshButton');
   const { showToast, setButtonLoading } = window.appUtils || {};
 
   try {
-    setButtonLoading?.(button, true);
+    setButtonLoading?.(button, true, 'Actualizando');
     await window.searchPage?.refreshClientsView?.(true);
-    window.subscriptionsPage?.renderSubscriptionCards?.();
+    await window.subscriptionsPage?.refreshSubscriptionsView?.(true);
     await window.plataformasPage?.refreshPlatformsView?.(true);
     await window.accountsPage?.refreshAccountsView?.(true);
     await window.correosPage?.refreshCorreosView?.(true);
+    window.dashboardPage?.refreshDashboard?.();
+    updateSyncStatus();
     showToast?.('Datos actualizados');
   } catch (error) {
     console.error('Error refreshing data:', error);
+    updateSyncStatus();
     showToast?.('No se pudieron actualizar los datos', 'error');
   } finally {
     setButtonLoading?.(button, false);
@@ -92,11 +136,13 @@ function setupConnectivitySync() {
 
   window.addEventListener('offline', () => {
     state.isOffline = true;
+    updateSyncStatus();
     showToast?.('Sin internet. Usando datos guardados.', 'error', 3500);
   });
 
   window.addEventListener('online', async () => {
     state.isOffline = false;
+    updateSyncStatus();
     showToast?.('Conexion restaurada. Sincronizando datos...', 'success', 2500);
 
     try {
@@ -112,6 +158,7 @@ function initApp() {
   state.activeView = 'dashboard';
   state.isOffline = !navigator.onLine;
   updateProfileUI(null);
+  updateSyncStatus();
 
   try {
     window.customersPage?.init?.();
@@ -143,5 +190,6 @@ window.toggleSidebar = toggleSidebar;
 window.setActiveView = setActiveView;
 window.goToDashboard = goToDashboard;
 window.refreshAppData = refreshAppData;
+window.updateSyncStatus = updateSyncStatus;
 
 document.addEventListener('DOMContentLoaded', initApp);

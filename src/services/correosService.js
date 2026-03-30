@@ -1,10 +1,11 @@
-﻿import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+﻿import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig.js';
 
 const appCache = () => window.appCache;
 const accountsService = () => window.accountsService;
 const firebaseService = () => window.firebaseService;
 const plataformasMetrics = () => window.plataformasMetrics;
+const CORREOS_CACHE_KEY = 'sther-correos-cache-v1';
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -20,13 +21,8 @@ function maskPassword(password) {
   return '•'.repeat(Math.max(6, value.length));
 }
 
-async function getCorreos() {
-  const snapshot = await getDocs(collection(db, 'correos'));
-  return snapshot.docs
-    .map((item) => ({
-      id: item.id,
-      ...item.data(),
-    }))
+function applyCorreos(items) {
+  return (Array.isArray(items) ? items : [])
     .map((item) => ({
       id: item.id,
       email: normalizeText(item.email),
@@ -36,6 +32,59 @@ async function getCorreos() {
     }))
     .filter((item) => item.email)
     .sort((a, b) => a.email.localeCompare(b.email));
+}
+
+function loadCorreosCache() {
+  try {
+    const raw = localStorage.getItem(CORREOS_CACHE_KEY);
+    if (!raw) return null;
+    return applyCorreos(JSON.parse(raw));
+  } catch (error) {
+    console.warn('No se pudo leer cache de correos:', error);
+    return null;
+  }
+}
+
+function saveCorreosCache(items) {
+  try {
+    localStorage.setItem(CORREOS_CACHE_KEY, JSON.stringify(items || []));
+  } catch (error) {
+    console.warn('No se pudo guardar cache de correos:', error);
+  }
+}
+
+function clearCorreosCache() {
+  window.appState.correosCatalog = null;
+  window.appState.correosRawCache = null;
+  try {
+    localStorage.removeItem(CORREOS_CACHE_KEY);
+  } catch (error) {
+    console.warn('No se pudo limpiar cache de correos:', error);
+  }
+}
+
+async function getCorreos(force = false) {
+  if (!force && Array.isArray(window.appState.correosRawCache)) {
+    return window.appState.correosRawCache;
+  }
+
+  if (!force) {
+    const snapshot = loadCorreosCache();
+    if (snapshot) {
+      window.appState.correosRawCache = snapshot;
+      return snapshot;
+    }
+  }
+
+  const snapshot = await getDocs(collection(db, 'correos'));
+  const items = applyCorreos(snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })));
+
+  window.appState.correosRawCache = items;
+  saveCorreosCache(items);
+  return items;
 }
 
 async function createCorreo(data) {
@@ -64,12 +113,53 @@ async function createCorreo(data) {
     updatedAt: serverTimestamp(),
   });
 
+  clearCorreosCache();
   return { id: created.id, email, password };
 }
 
+async function updateCorreo(correoId, data) {
+  const id = normalizeText(correoId);
+  const email = normalizeText(data?.email);
+  const password = normalizeText(data?.password);
+  const emailLower = normalizeEmail(email);
+
+  if (!id) throw new Error('Correo ID requerido');
+  if (!email || !email.includes('@')) throw new Error('Ingresa un correo valido');
+  if (!password || password.length < 3) throw new Error('Ingresa una contraseña valida');
+
+  const existing = await getDocs(query(collection(db, 'correos'), where('emailLower', '==', emailLower)));
+  const duplicated = existing.docs.find((item) => item.id !== id);
+  if (duplicated) {
+    throw new Error('Ese correo ya existe');
+  }
+
+  await setDoc(doc(db, 'correos', id), {
+    email,
+    emailLower,
+    password,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  clearCorreosCache();
+  return { ok: true, id, email, password };
+}
+
+async function deleteCorreo(correoId) {
+  const id = normalizeText(correoId);
+  if (!id) throw new Error('Correo ID requerido');
+
+  await deleteDoc(doc(db, 'correos', id));
+  clearCorreosCache();
+  return { ok: true };
+}
+
 async function getCorreosCatalog(force = false) {
+  if (!force && Array.isArray(window.appState.correosCatalog)) {
+    return window.appState.correosCatalog;
+  }
+
   const [correos, overview] = await Promise.all([
-    getCorreos(),
+    getCorreos(force),
     getCorreosOverview(force),
   ]);
 
@@ -101,14 +191,17 @@ async function getCorreosCatalog(force = false) {
     });
   });
 
-  return [...map.values()]
+  const catalog = [...map.values()]
     .filter((item) => item.email)
     .sort((a, b) => a.email.localeCompare(b.email));
+
+  window.appState.correosCatalog = catalog;
+  return catalog;
 }
 
 async function getCorreosOverview(force = false) {
   const [correos, accounts, data] = await Promise.all([
-    getCorreos(),
+    getCorreos(force),
     accountsService().getAccountsOverview(force),
     appCache().ensureData(force),
   ]);
@@ -189,8 +282,11 @@ window.correosService = {
   getCorreos,
   getCorreosCatalog,
   createCorreo,
+  updateCorreo,
+  deleteCorreo,
   getCorreosOverview,
   maskPassword,
+  clearCorreosCache,
 };
 
-export { getCorreos, getCorreosCatalog, createCorreo, getCorreosOverview, maskPassword };
+export { getCorreos, getCorreosCatalog, createCorreo, updateCorreo, deleteCorreo, getCorreosOverview, maskPassword, clearCorreosCache };

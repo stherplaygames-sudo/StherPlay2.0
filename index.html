@@ -59,18 +59,18 @@
       <main class="app-main">
         <div class="content-topbar">
           <button type="button" class="topbar-icon" id="menuToggle" onclick="toggleSidebar()">
-            <span aria-hidden="true">&#9776;</span>
+            <span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
             <span class="sr-only">Abrir menú</span>
           </button>
           <div class="topbar-title">Sther Play Control</div>
           <div class="topbar-actions">
             <div class="topbar-status">En línea</div>
             <button type="button" class="topbar-icon small-icon" onclick="goToDashboard()" title="Ir al panel">
-              <span aria-hidden="true">&#8962;</span>
+              <span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M6.5 10.5V20h11V10.5"/></svg></span>
               <span class="sr-only">Panel</span>
             </button>
-            <button type="button" class="topbar-icon small-icon" id="refreshButton" onclick="refreshAppData()" title="Refrescar datos">
-              <span aria-hidden="true">&#10227;</span>
+            <button type="button" class="topbar-icon small-icon" id="refreshButton" data-loading-mode="icon" onclick="refreshAppData()" title="Refrescar datos">
+              <span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg></span>
               <span class="sr-only">Refrescar</span>
             </button>
           </div>
@@ -102,6 +102,14 @@
               <article class="metric-card warning">
                 <div class="metric-label">Por Vencer</div>
                 <div class="metric-value" id="metricExpiringSoon">0</div>
+              </article>
+              <article class="metric-card info">
+                <div class="metric-label">Cuentas Por Renovar</div>
+                <div class="metric-value" id="metricRenewAccounts">0</div>
+              </article>
+              <article class="metric-card danger soft-danger">
+                <div class="metric-label">Cuentas Vencidas</div>
+                <div class="metric-value" id="metricExpiredAccounts">0</div>
               </article>
             </section>
 
@@ -251,7 +259,7 @@
                     <span class="search-icon" aria-hidden="true">⌕</span>
                     <input type="text" id="platformsSearchInput" placeholder="Buscar plataforma..." />
                   </label>
-                  <button type="button" class="btn-secondary slim-btn import-platforms-btn" id="importPlatformsButton" onclick="importarPlataformasExistentes()">Importar existentes</button>
+                  <button type="button" class="btn-secondary slim-btn import-platforms-btn hidden" id="importPlatformsButton" onclick="importarPlataformasExistentes()">Importar existentes</button>
                 </div>
               </div>
 
@@ -300,7 +308,7 @@
               <div class="module-toolbar accounts-toolbar">
                 <div class="search-toolbar-row">
                   <label class="search-shell compact-search-shell">
-                    <span class="search-icon" aria-hidden="true">?</span>
+                    <span class="search-icon" aria-hidden="true">✉</span>
                     <input type="text" id="correosSearchInput" placeholder="Buscar correo o plataforma..." />
                   </label>
                 </div>
@@ -393,9 +401,20 @@
           <option value="SUSPENDIDA">SUSPENDIDA</option>
           <option value="VENCIDA">VENCIDA</option>
         </select>
-
         <label>Final price</label>
         <input id="editPrecioFinal" placeholder="Leave empty to keep current value" />
+
+        <label>Email</label>
+        <input id="editCorreoSub" placeholder="correo@gmail.com" disabled />
+
+        <label>Perfil</label>
+        <input id="editPerfilSub" placeholder="Perfil 1" />
+
+        <label>PIN</label>
+        <div class="input-with-action">
+          <input id="editPinSub" placeholder="PIN" />
+          <button type="button" class="mini-icon-btn" onclick="generarPinEditarSub()" title="Generar PIN">⚙</button>
+        </div>
 
         <div class="modal-actions">
           <button class="btn-save" onclick="confirmarEditarSub()">Save</button>
@@ -416,6 +435,20 @@
 
         <label>Password</label>
         <input id="editContrasena" placeholder="Optional" />
+
+        <label>Fecha de renovacion</label>
+        <input id="editRenewalDate" type="date" />
+
+        <label>Costo de renovacion</label>
+        <input id="editRenewalPrice" type="number" min="0" placeholder="Ejemplo: 180" />
+
+        <label class="checkbox-row">
+          <input id="editAutoRenew" type="checkbox" />
+          <span>Renovacion automatica</span>
+        </label>
+
+        <label>Notas</label>
+        <textarea id="editAccountNotes" rows="3" placeholder="Notas internas"></textarea>
 
         <div class="modal-actions">
           <button class="btn-save" onclick="confirmarEditarCuenta()">Save</button>
@@ -639,13 +672,48 @@
         </div>
       </div>
     </div>
-
     <div id="modalCorreoDetalles" class="modal hidden">
       <div class="details-modal-box">
-        <button type="button" class="close-btn" onclick="cerrarDetallesCorreo()">?</button>
+        <button type="button" class="close-btn" onclick="cerrarDetallesCorreo()">✕</button>
         <h3 id="correoDetallesTitulo">Correo</h3>
         <p id="correoDetallesSubtitulo" class="sort-badge"></p>
         <div id="correoDetallesContent" class="details-content"></div>
+      </div>
+    </div>
+
+    <div id="modalEditarCorreo" class="modal hidden">
+      <div class="modal-box">
+        <h3>Editar correo</h3>
+
+        <label>Correo</label>
+        <input id="editarCorreoEmail" type="text" placeholder="correo@gmail.com" />
+
+        <label>Contrase?a / PIN base</label>
+        <input id="editarCorreoPassword" placeholder="PIN o contrase?a base" />
+
+        <div class="modal-actions">
+          <button class="btn-save" onclick="guardarEdicionCorreo()">Guardar</button>
+          <button class="btn-cancel" onclick="cerrarEditarCorreo()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalEliminarCorreo" class="modal hidden">
+      <div class="modal-box">
+        <h3>Eliminar correo</h3>
+
+        <p style="font-size: 0.92rem; opacity: 0.9">
+          Esta acci?n eliminar? el correo del cat?logo. Para confirmar, escribe
+          <strong>ELIMINAR</strong>.
+        </p>
+
+        <label>Confirmaci?n</label>
+        <input id="eliminarCorreoConfirmacion" placeholder="Escribe ELIMINAR" autocomplete="off" />
+
+        <div class="modal-actions">
+          <button class="btn-save btn-delete" onclick="confirmarEliminarCorreo()">Eliminar</button>
+          <button class="btn-cancel" onclick="cerrarEliminarCorreo()">Cancelar</button>
+        </div>
       </div>
     </div>
 
@@ -665,6 +733,7 @@
     <div id="toast" class="toast hidden"></div>
   </body>
 </html>
+
 
 
 

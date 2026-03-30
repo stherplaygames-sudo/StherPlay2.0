@@ -1,6 +1,7 @@
 ﻿import Chart from 'chart.js/auto';
 
 const state = window.appState;
+const accountsService = window.accountsService;
 
 function getSubscriptions() {
   return Array.isArray(state.subscriptionRecords) ? state.subscriptionRecords : [];
@@ -74,15 +75,19 @@ function getPlatformLogoMarkup(platform) {
   return `<div class="platform-icon platform-logo is-${brand}" aria-label="${label}" title="${label}">${brandMarks[brand] || fallback}</div>`;
 }
 
-function buildAlerts(subscriptions) {
+function buildAlerts(subscriptions, accounts) {
   const today = subscriptions.filter((item) => item.daysRemaining === 0).length;
   const tomorrow = subscriptions.filter((item) => item.daysRemaining === 1).length;
   const nextThreeDays = subscriptions.filter((item) => item.daysRemaining > 1 && item.daysRemaining <= 3).length;
+  const renewSoon = accounts.filter((item) => item.renewalStatus === 'POR_VENCER').length;
+  const renewExpired = accounts.filter((item) => item.renewalStatus === 'VENCIDA').length;
 
   return [
     { label: 'Vencen hoy', value: today, tone: 'danger' },
     { label: 'Vencen mañana', value: tomorrow, tone: 'warning' },
     { label: 'Dentro de 3 días', value: nextThreeDays, tone: 'info' },
+    { label: 'Cuentas por renovar', value: renewSoon, tone: 'warning' },
+    { label: 'Cuentas vencidas', value: renewExpired, tone: 'danger' },
   ];
 }
 
@@ -187,15 +192,37 @@ function renderPlatformStats(platformStats) {
     .join('');
 }
 
-function refreshDashboard() {
+function renderAccountMetrics(accounts) {
+  const renewCounter = document.getElementById('metricRenewAccounts');
+  const expiredCounter = document.getElementById('metricExpiredAccounts');
+  if (!renewCounter || !expiredCounter) return;
+
+  renewCounter.textContent = String(accounts.filter((item) => item.renewalStatus === 'POR_VENCER').length);
+  expiredCounter.textContent = String(accounts.filter((item) => item.renewalStatus === 'VENCIDA').length);
+}
+
+async function refreshDashboard() {
   const subscriptions = getSubscriptions();
+  let accounts = Array.isArray(state.accountSummaries) ? state.accountSummaries : [];
+
+  if (!accounts.length) {
+    try {
+      accounts = await accountsService.getAccountsOverview(false);
+      state.accountSummaries = accounts;
+    } catch (error) {
+      console.error('No se pudieron cargar alertas de cuentas:', error);
+      accounts = [];
+    }
+  }
+
   const stats = buildStats(subscriptions);
   const platformStats = buildPlatformStats(subscriptions);
-  const alerts = buildAlerts(subscriptions);
+  const alerts = buildAlerts(subscriptions, accounts);
 
   renderStatusChart(stats);
   renderAlerts(alerts);
   renderPlatformStats(platformStats);
+  renderAccountMetrics(accounts);
 }
 
 function init() {
@@ -206,4 +233,3 @@ window.dashboardPage = {
   init,
   refreshDashboard,
 };
-

@@ -19,6 +19,7 @@ function calcularRentabilidadCuenta(cuenta, subs) {
 
   const costo =
     Number(
+      (Number(account?.renewalPrice || 0) > 0 ? account?.renewalPrice : undefined) ??
       account?.costoMensual ??
       account?.precioBase ??
       account?.platformCost ??

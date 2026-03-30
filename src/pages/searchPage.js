@@ -1,7 +1,7 @@
 ﻿const state = window.appState;
 const appCache = window.appCache;
 const firebaseService = window.firebaseService;
-const { showToast } = window.appUtils || {};
+const { showToast, setButtonLoading } = window.appUtils || {};
 
 function getFilteredClients() {
   const query = String(state.clientsQuery || '').trim().toLowerCase();
@@ -182,7 +182,7 @@ async function confirmarEliminarCliente() {
   }
 
   try {
-    btn && (btn.disabled = true);
+    setButtonLoading?.(btn, true, 'Eliminando');
     await firebaseService.deleteClientCascade(state.clienteAEliminar);
     appCache.invalidate();
     showToast?.('Cliente eliminado', 'success');
@@ -192,7 +192,7 @@ async function confirmarEliminarCliente() {
     console.error(error);
     showToast?.('No se pudo eliminar el cliente', 'error');
   } finally {
-    btn && (btn.disabled = false);
+    setButtonLoading?.(btn, false);
   }
 }
 
