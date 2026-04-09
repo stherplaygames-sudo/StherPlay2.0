@@ -39,6 +39,7 @@ function formatSyncTime(timestamp) {
 function updateSyncStatus() {
   const banner = document.getElementById('syncBanner');
   const textNode = document.getElementById('syncStatusText');
+  const topbarStatus = document.getElementById('topbarStatus');
   if (!banner || !textNode) return;
 
   banner.classList.remove('is-offline', 'is-fresh');
@@ -49,6 +50,7 @@ function updateSyncStatus() {
     textNode.textContent = time
       ? `Sin internet. Usando datos guardados de las ${time}`
       : 'Sin internet. Usando datos guardados';
+    if (topbarStatus) topbarStatus.textContent = 'Sin internet';
     return;
   }
 
@@ -58,6 +60,7 @@ function updateSyncStatus() {
     textNode.textContent = time
       ? `${state.loadError}. Ultima sincronizacion ${time}`
       : state.loadError;
+    if (topbarStatus) topbarStatus.textContent = 'Error de carga';
     return;
   }
 
@@ -66,6 +69,7 @@ function updateSyncStatus() {
   textNode.textContent = time
     ? `Datos guardados localmente. Ultima sincronizacion ${time}`
     : 'Datos listos. Esperando primera sincronizacion';
+  if (topbarStatus) topbarStatus.textContent = 'En línea';
 }
 
 async function refreshAppData() {
@@ -193,3 +197,4 @@ window.refreshAppData = refreshAppData;
 window.updateSyncStatus = updateSyncStatus;
 
 document.addEventListener('DOMContentLoaded', initApp);
+

@@ -4,6 +4,15 @@ const firebaseService = window.firebaseService;
 const cuentasUtils = window.cuentasUtils;
 const { showToast, setButtonLoading } = window.appUtils || {};
 
+function iconMarkup(name) {
+  const icons = {
+    eye: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></span>',
+    eyeOff: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3 21 21"/><path d="M10.6 10.7A2.5 2.5 0 0 0 13.3 13.4"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a15.6 15.6 0 0 1-3.2 3.9"/><path d="M6.2 6.2A15.2 15.2 0 0 0 2.5 12s3.5 6 9.5 6c1.7 0 3.2-.4 4.6-1.1"/></svg></span>',
+  };
+
+  return icons[name] || '';
+}
+
 function getFilteredCorreos() {
   const query = String(state.correosQuery || '').trim().toLowerCase();
   const items = [...(state.correoSummaries || [])];
@@ -32,7 +41,7 @@ function getPasswordInputMarkup(value, correoId, disabled = true) {
   const safeId = String(correoId || '').replace(/'/g, '');
   const visible = state.correoPasswordVisibleId === safeId;
   const type = visible ? 'text' : 'password';
-  const buttonLabel = visible ? '🙈' : '👁️';
+  const buttonLabel = visible ? iconMarkup('eyeOff') : iconMarkup('eye');
   const disabledAttr = disabled ? 'disabled' : '';
 
   return [
@@ -310,3 +319,4 @@ window.abrirEliminarCorreo = abrirEliminarCorreo;
 window.cerrarEliminarCorreo = cerrarEliminarCorreo;
 window.confirmarEliminarCorreo = confirmarEliminarCorreo;
 window.cerrarDetallesCorreo = cerrarDetallesCorreo;
+

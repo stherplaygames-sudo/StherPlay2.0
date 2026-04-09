@@ -7,6 +7,18 @@ const cuentasSmart = window.cuentasSmart;
 const correosService = window.correosService;
 const { normalizarFechaISO, setButtonLoading, showToast } = window.appUtils;
 
+function iconMarkup(name) {
+  const icons = {
+    play: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M8 7.5 17.5 12 8 16.5Z" fill="currentColor"/><rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/></svg></span>',
+    calendar: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span>',
+    clock: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.5"/></svg></span>',
+    user: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19a7 7 0 0 1 14 0"/></svg></span>',
+    trash: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 3.5h5l1 2h-7l1-2Z"/><path d="M8 7v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"/><path d="M10 10.5v5M14 10.5v5"/></svg></span>',
+  };
+
+  return icons[name] || '';
+}
+
 function statusClass(status) {
   return {
     ACTIVA: 'status-active',
@@ -116,7 +128,7 @@ function renderWhatsAppButton(item) {
 }
 
 function renderDeleteButton(item) {
-  return `<button type="button" class="delete-icon-btn" onclick="abrirEliminarSuscripcion('${item.idSuscripcion}')" title="Eliminar suscripción">🗑</button>`;
+  return `<button type="button" class="delete-icon-btn" onclick="abrirEliminarSuscripcion('${item.idSuscripcion}')" title="Eliminar suscripción">${iconMarkup('trash')}</button>`;
 }
 
 function renderSuggestedAccount(account, platformName, summary = null) {
@@ -294,7 +306,7 @@ function renderSubscriptionCards() {
       (item) => `
         <article class="list-card subscription-card inventory-card">
           <div class="inventory-card-main">
-            <div class="inventory-avatar">🎬</div>
+            <div class="inventory-avatar">${iconMarkup('play')}</div>
             <div class="inventory-copy">
               <div class="card-top compact-top">
                 <div>
@@ -302,11 +314,11 @@ function renderSubscriptionCards() {
                   <p class="card-meta">${item.plataforma}</p>
                 </div>
               </div>
-              <p class="inventory-line">📅 ${item.fechaInicio || 'N/A'} → ${item.fechaVencimiento || 'N/A'}</p>
+              <p class="inventory-line">${iconMarkup('calendar')} ${item.fechaInicio || 'N/A'} → ${item.fechaVencimiento || 'N/A'}</p>
               <div class="status-chip ${statusClass(item.normalizedStatus)}">${statusLabel(item.normalizedStatus)}</div>
               <div class="inventory-meta">
-                <span>⏱ ${formatDays(item.daysRemaining)}</span>
-                <span>👤 ${item.clientName}</span>
+                <span>${iconMarkup('clock')} ${formatDays(item.daysRemaining)}</span>
+                <span>${iconMarkup('user')} ${item.clientName}</span>
               </div>
             </div>
           </div>
@@ -1079,6 +1091,7 @@ window.confirmarEliminarSuscripcion = confirmarEliminarSuscripcion;
 window.abrirWhatsAppSuscripcion = abrirWhatsAppSuscripcion;
 window.generarContrasenaSub = generarContrasenaSub;
 window.generarPinEditarSub = generarPinEditarSub;
+
 
 
 

@@ -3,6 +3,20 @@ const appCache = window.appCache;
 const firebaseService = window.firebaseService;
 const { showToast, setButtonLoading } = window.appUtils || {};
 
+function iconMarkup(name) {
+  const icons = {
+    user: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19a7 7 0 0 1 14 0"/></svg></span>',
+    play: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M8 7.5 17.5 12 8 16.5Z" fill="currentColor"/><rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/></svg></span>',
+    phone: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4.5h3l1.2 3.2-1.8 1.8a15 15 0 0 0 5 5l1.8-1.8 3.2 1.2v3a2 2 0 0 1-2.2 2A15.8 15.8 0 0 1 4.5 6.7 2 2 0 0 1 6.5 4.5Z"/></svg></span>',
+    calendar: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span>',
+    clock: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.5"/></svg></span>',
+    edit: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 4.5-1 9-9a2.1 2.1 0 0 0-3-3l-9 9L4 20Z"/><path d="m13.5 6.5 4 4"/></svg></span>',
+    trash: '<span class="icon-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 3.5h5l1 2h-7l1-2Z"/><path d="M8 7v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"/><path d="M10 10.5v5M14 10.5v5"/></svg></span>',
+  };
+
+  return icons[name] || '';
+}
+
 function getFilteredClients() {
   const query = String(state.clientsQuery || '').trim().toLowerCase();
   const filter = state.clientsFilter || 'AZ';
@@ -58,7 +72,7 @@ function renderClientCards() {
       return `
         <article class="list-card client-card inventory-card">
           <div class="inventory-card-main">
-            <div class="inventory-avatar">👤</div>
+            <div class="inventory-avatar">${iconMarkup('user')}</div>
             <div class="inventory-copy">
               <div class="card-top compact-top">
                 <div>
@@ -66,18 +80,18 @@ function renderClientCards() {
                   <p class="card-meta">ID ${item.id}</p>
                 </div>
               </div>
-              <p class="inventory-line">📞 ${item.telefono || 'N/A'}</p>
+              <p class="inventory-line">${iconMarkup('phone')} ${item.telefono || 'N/A'}</p>
               <div class="status-chip ${estadoClase(status)}">${status.replace('_', ' ')}</div>
               <div class="inventory-meta">
-                <span>🎬 ${principal?.plataforma || 'Sin suscripción'}</span>
-                <span>📅 ${principal?.fechaVencimiento || 'N/A'}</span>
-                <span>⏱ ${textoDias(principal?.diasRestantes)}</span>
+                <span>${iconMarkup('play')} ${principal?.plataforma || 'Sin suscripción'}</span>
+                <span>${iconMarkup('calendar')} ${principal?.fechaVencimiento || 'N/A'}</span>
+                <span>${iconMarkup('clock')} ${textoDias(principal?.diasRestantes)}</span>
               </div>
             </div>
           </div>
           <div class="inventory-side inventory-side-actions">
-            <button type="button" class="icon-button card-edit-icon" onclick="abrirEditarClienteDesdeCard('${item.id}')">✎</button>
-            <button type="button" class="delete-icon-btn" onclick="abrirEliminarCliente('${item.id}')" title="Eliminar cliente">🗑</button>
+            <button type="button" class="icon-button card-edit-icon" onclick="abrirEditarClienteDesdeCard('${item.id}')">${iconMarkup('edit')}</button>
+            <button type="button" class="delete-icon-btn" onclick="abrirEliminarCliente('${item.id}')" title="Eliminar cliente">${iconMarkup('trash')}</button>
           </div>
           <div class="card-actions-row inventory-actions client-actions-single">
             <button type="button" class="module-action slim-btn" onclick="verDetallesCliente('${item.id}')">Detalles</button>
@@ -270,4 +284,5 @@ window.cerrarDetallesCliente = cerrarDetallesCliente;
 window.abrirEliminarCliente = abrirEliminarCliente;
 window.cerrarEliminarCliente = cerrarEliminarCliente;
 window.confirmarEliminarCliente = confirmarEliminarCliente;
+
 
