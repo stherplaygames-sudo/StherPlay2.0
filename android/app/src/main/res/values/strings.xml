@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StherPlay</string>
+    <string name="title_activity_main">StherPlay</string>
+    <string name="package_name">com.stherplay.app</string>
+    <string name="custom_url_scheme">com.stherplay.app</string>
+</resources>
