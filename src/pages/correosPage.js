@@ -161,7 +161,7 @@ function verDetallesCorreo(correoId) {
   title.textContent = item.correo;
   subtitle.textContent = `${item.totalCuentas} cuentas - ${item.totalClientes} clientes - ${item.porcentajeOcupacion}% de uso`;
   content.innerHTML = renderCorreoDetails(item);
-  modal.classList.remove('hidden');
+  window.openModal?.('modalCorreoDetalles');
 }
 
 function toggleCorreoPassword(correoId) {
@@ -181,11 +181,11 @@ function abrirAgregarCorreo() {
   window.toggleSidebar?.(false);
   document.getElementById('nuevoCorreoEmail').value = '';
   document.getElementById('nuevoCorreoPassword').value = '';
-  document.getElementById('modalAgregarCorreo')?.classList.remove('hidden');
+  window.openModal?.('modalAgregarCorreo');
 }
 
 function cerrarAgregarCorreo() {
-  document.getElementById('modalAgregarCorreo')?.classList.add('hidden');
+  window.closeModal?.('modalAgregarCorreo');
 }
 
 async function guardarCorreo() {
@@ -215,11 +215,11 @@ function abrirEditarCorreo(correoId) {
   state.correoEditandoId = correoId;
   document.getElementById('editarCorreoEmail').value = item.correo || '';
   document.getElementById('editarCorreoPassword').value = item.password || '';
-  document.getElementById('modalEditarCorreo')?.classList.remove('hidden');
+  window.openModal?.('modalEditarCorreo');
 }
 
 function cerrarEditarCorreo() {
-  document.getElementById('modalEditarCorreo')?.classList.add('hidden');
+  window.closeModal?.('modalEditarCorreo');
   state.correoEditandoId = null;
 }
 
@@ -249,11 +249,11 @@ function abrirEliminarCorreo(correoId) {
   state.correoAEliminar = correoId;
   const input = document.getElementById('eliminarCorreoConfirmacion');
   if (input) input.value = '';
-  document.getElementById('modalEliminarCorreo')?.classList.remove('hidden');
+  window.openModal?.('modalEliminarCorreo');
 }
 
 function cerrarEliminarCorreo() {
-  document.getElementById('modalEliminarCorreo')?.classList.add('hidden');
+  window.closeModal?.('modalEliminarCorreo');
   const input = document.getElementById('eliminarCorreoConfirmacion');
   if (input) input.value = '';
   state.correoAEliminar = null;
@@ -286,7 +286,7 @@ async function confirmarEliminarCorreo() {
 }
 
 function cerrarDetallesCorreo() {
-  document.getElementById('modalCorreoDetalles')?.classList.add('hidden');
+  window.closeModal?.('modalCorreoDetalles');
 }
 
 function init() {

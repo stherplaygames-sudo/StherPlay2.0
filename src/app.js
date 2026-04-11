@@ -72,6 +72,33 @@ function updateSyncStatus() {
   if (topbarStatus) topbarStatus.textContent = 'En línea';
 }
 
+function closeAllModals(exceptId) {
+  document.querySelectorAll('.modal').forEach((modal) => {
+    if (exceptId && modal.id === exceptId) return;
+    modal.classList.add('hidden');
+  });
+}
+
+function openModal(id) {
+  if (!id) return;
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  closeAllModals(id);
+  modal.classList.remove('hidden');
+  state.activeModal = id;
+}
+
+function closeModal(id) {
+  const modalId = id || state.activeModal;
+  if (!modalId) return;
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.classList.add('hidden');
+  if (!id || id === state.activeModal) {
+    state.activeModal = null;
+  }
+}
+
 async function refreshAppData() {
   const button = document.getElementById('refreshButton');
   const { showToast, setButtonLoading } = window.appUtils || {};
@@ -161,6 +188,7 @@ function initApp() {
   state.sidebarOpen = false;
   state.activeView = 'dashboard';
   state.isOffline = !navigator.onLine;
+  state.activeModal = null;
   updateProfileUI(null);
   updateSyncStatus();
 
@@ -185,6 +213,10 @@ function initApp() {
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (state.activeModal) {
+        closeModal();
+        return;
+      }
       toggleSidebar(false);
     }
   });
@@ -195,6 +227,9 @@ window.setActiveView = setActiveView;
 window.goToDashboard = goToDashboard;
 window.refreshAppData = refreshAppData;
 window.updateSyncStatus = updateSyncStatus;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.closeAllModals = closeAllModals;
 
 document.addEventListener('DOMContentLoaded', initApp);
 

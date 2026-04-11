@@ -186,7 +186,7 @@ function abrirAgregarPlataforma() {
   window.toggleSidebar?.(false);
   resetPlataformaForm();
   document.getElementById('modalPlataformaTitulo').textContent = 'Agregar plataforma';
-  document.getElementById('modalPlataforma').classList.remove('hidden');
+  window.openModal?.('modalPlataforma');
 }
 
 function abrirEditarPlataforma(id) {
@@ -199,11 +199,11 @@ function abrirEditarPlataforma(id) {
   document.getElementById('plataformaPerfiles').value = item.perfiles || '';
   document.getElementById('plataformaCostoMensual').value = item.precioBase || '';
   document.getElementById('plataformaActiva').checked = Boolean(item.activo);
-  document.getElementById('modalPlataforma').classList.remove('hidden');
+  window.openModal?.('modalPlataforma');
 }
 
 function cerrarPlataformaModal() {
-  document.getElementById('modalPlataforma').classList.add('hidden');
+  window.closeModal?.('modalPlataforma');
   resetPlataformaForm();
 }
 
@@ -247,11 +247,11 @@ function abrirEliminarPlataforma(id) {
   state.plataformaAEliminar = String(id || '').trim();
   const input = document.getElementById('eliminarPlataformaConfirmacion');
   if (input) input.value = '';
-  document.getElementById('modalEliminarPlataforma')?.classList.remove('hidden');
+  window.openModal?.('modalEliminarPlataforma');
 }
 
 function cerrarEliminarPlataforma() {
-  document.getElementById('modalEliminarPlataforma')?.classList.add('hidden');
+  window.closeModal?.('modalEliminarPlataforma');
   const input = document.getElementById('eliminarPlataformaConfirmacion');
   if (input) input.value = '';
   state.plataformaAEliminar = null;

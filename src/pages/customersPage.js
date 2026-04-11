@@ -5,7 +5,7 @@ const { setButtonLoading, showToast } = window.appUtils;
 
 function abrirAgregarCliente() {
   window.toggleSidebar?.(false);
-  document.getElementById('modalAgregarCliente').classList.remove('hidden');
+  window.openModal?.('modalAgregarCliente');
 }
 
 function limpiarAgregarCliente() {
@@ -14,7 +14,7 @@ function limpiarAgregarCliente() {
 }
 
 function cerrarAgregarCliente() {
-  document.getElementById('modalAgregarCliente').classList.add('hidden');
+  window.closeModal?.('modalAgregarCliente');
   limpiarAgregarCliente();
 }
 
@@ -53,7 +53,7 @@ function cargarClienteEnFormulario(cliente) {
 
 function abrirEditarCliente(idCliente = null) {
   window.toggleSidebar?.(false);
-  document.getElementById('modalEditarCliente').classList.remove('hidden');
+  window.openModal?.('modalEditarCliente');
 
   if (!idCliente) return;
 
@@ -64,7 +64,7 @@ function abrirEditarCliente(idCliente = null) {
 }
 
 function cerrarEditarCliente() {
-  document.getElementById('modalEditarCliente').classList.add('hidden');
+  window.closeModal?.('modalEditarCliente');
   document.getElementById('editClienteNombre').value = '';
   document.getElementById('editClienteTelefono').value = '';
   document.getElementById('editClienteEstado').value = 'ACTIVA';

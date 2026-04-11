@@ -363,11 +363,11 @@ function abrirRenovar(idSuscripcion) {
 
   state.suscripcionARenovar = String(idSuscripcion).trim();
   document.getElementById('renovarMeses').value = 1;
-  document.getElementById('modalRenovar').classList.remove('hidden');
+  window.openModal?.('modalRenovar');
 }
 
 function cerrarRenovar() {
-  document.getElementById('modalRenovar').classList.add('hidden');
+  window.closeModal?.('modalRenovar');
   document.getElementById('renovarMeses').value = '';
   state.suscripcionARenovar = null;
 }
@@ -629,7 +629,7 @@ function generarContrasenaSub() {
 
 function abrirCrearSub() {
   window.toggleSidebar?.(false);
-  document.getElementById('modalCrearSub').classList.remove('hidden');
+  window.openModal?.('modalCrearSub');
   renderSuggestedAccount(null);
   cargarClientesSelect();
   initClienteAutocomplete();
@@ -770,7 +770,7 @@ function limpiarCrearSub() {
 }
 
 function cerrarCrearSub() {
-  document.getElementById('modalCrearSub').classList.add('hidden');
+  window.closeModal?.('modalCrearSub');
   limpiarCrearSub();
 }
 
@@ -787,7 +787,7 @@ async function abrirEditarSuscripcion(id) {
     document.getElementById('editCorreoSub').value = item.correo || '';
     document.getElementById('editPerfilSub').value = item.perfil || '';
     document.getElementById('editPinSub').value = item.pin || '';
-    document.getElementById('modalEditarSub').classList.remove('hidden');
+    window.openModal?.('modalEditarSub');
   } catch (error) {
     console.error(error);
     showToast(error?.message || 'No se pudo cargar la suscripcion', 'error');
@@ -838,7 +838,7 @@ function generarPinEditarSub() {
 }
 
 function cerrarEditarSub() {
-  document.getElementById('modalEditarSub').classList.add('hidden');
+  window.closeModal?.('modalEditarSub');
   state.suscripcionEditando = null;
 }
 
@@ -857,7 +857,7 @@ async function abrirEditarCuenta(idSuscripcion) {
     document.getElementById('editAutoRenew').checked = Boolean(cuenta.autoRenew);
     document.getElementById('editAccountNotes').value = cuenta.notes || '';
     state.cuentaEditandoEsGeneral = false;
-    document.getElementById('modalEditarCuenta').classList.remove('hidden');
+    window.openModal?.('modalEditarCuenta');
   } catch (error) {
     console.error(error);
     showToast(error?.message || 'No se pudo cargar la cuenta', 'error');
@@ -904,7 +904,7 @@ async function confirmarEditarCuenta() {
 }
 
 function cerrarEditarCuenta() {
-  document.getElementById('modalEditarCuenta').classList.add('hidden');
+  window.closeModal?.('modalEditarCuenta');
   const perfilInput = document.getElementById('editPerfil');
   if (perfilInput) {
     perfilInput.disabled = false;
@@ -916,11 +916,11 @@ function cerrarEditarCuenta() {
 
 function abrirDarDeBaja(idSuscripcion) {
   state.suscripcionABaja = idSuscripcion;
-  document.getElementById('modalBaja').classList.remove('hidden');
+  window.openModal?.('modalBaja');
 }
 
 function cerrarDarDeBaja() {
-  document.getElementById('modalBaja').classList.add('hidden');
+  window.closeModal?.('modalBaja');
   state.suscripcionABaja = null;
 }
 
@@ -953,11 +953,11 @@ function abrirEliminarSuscripcion(idSuscripcion) {
   state.suscripcionAEliminar = String(idSuscripcion || '').trim();
   const input = document.getElementById('eliminarSuscripcionConfirmacion');
   if (input) input.value = '';
-  document.getElementById('modalEliminarSuscripcion')?.classList.remove('hidden');
+  window.openModal?.('modalEliminarSuscripcion');
 }
 
 function cerrarEliminarSuscripcion() {
-  document.getElementById('modalEliminarSuscripcion')?.classList.add('hidden');
+  window.closeModal?.('modalEliminarSuscripcion');
   const input = document.getElementById('eliminarSuscripcionConfirmacion');
   if (input) input.value = '';
   state.suscripcionAEliminar = null;

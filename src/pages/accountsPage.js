@@ -218,11 +218,11 @@ async function verDetallesCuenta(accountId) {
       : '<div class="empty-state">No hay clientes ligados a esta cuenta.</div>'}
   `;
 
-  modal.classList.remove('hidden');
+  window.openModal?.('modalCuentaDetalles');
 }
 
 function cerrarDetallesCuenta() {
-  document.getElementById('modalCuentaDetalles')?.classList.add('hidden');
+  window.closeModal?.('modalCuentaDetalles');
 }
 
 function abrirEditarCuentaGeneral(accountId) {
@@ -252,7 +252,7 @@ function abrirEditarCuentaGeneral(accountId) {
   if (autoRenewInput) autoRenewInput.checked = Boolean(account.autoRenew);
   if (notesInput) notesInput.value = account.notes || '';
 
-  document.getElementById('modalEditarCuenta')?.classList.remove('hidden');
+  window.openModal?.('modalEditarCuenta');
 }
 
 async function confirmarEditarCuentaGeneral() {
@@ -280,7 +280,7 @@ async function confirmarEditarCuentaGeneral() {
     await firebaseService.updateAccountMeta(payload);
     appCache.invalidate();
     showToast?.('Cuenta actualizada');
-    document.getElementById('modalEditarCuenta')?.classList.add('hidden');
+    window.closeModal?.('modalEditarCuenta');
     state.cuentaEditando = null;
     state.cuentaEditandoEsGeneral = false;
     await Promise.all([

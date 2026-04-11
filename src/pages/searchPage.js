@@ -162,18 +162,18 @@ async function verDetallesCliente(idCliente) {
 
   const subsContainer = document.getElementById('clienteDetallesSubs');
   await window.subscriptionsPage?.renderSuscripciones?.(cliente.id, subsContainer);
-  modal.classList.remove('hidden');
+  window.openModal?.('modalClienteDetalles');
 }
 
 function abrirEliminarCliente(idCliente) {
   state.clienteAEliminar = String(idCliente || '').trim();
   const input = document.getElementById('eliminarClienteConfirmacion');
   if (input) input.value = '';
-  document.getElementById('modalEliminarCliente')?.classList.remove('hidden');
+  window.openModal?.('modalEliminarCliente');
 }
 
 function cerrarEliminarCliente() {
-  document.getElementById('modalEliminarCliente')?.classList.add('hidden');
+  window.closeModal?.('modalEliminarCliente');
   const input = document.getElementById('eliminarClienteConfirmacion');
   if (input) input.value = '';
   state.clienteAEliminar = null;
@@ -211,7 +211,7 @@ async function confirmarEliminarCliente() {
 }
 
 function cerrarDetallesCliente() {
-  document.getElementById('modalClienteDetalles')?.classList.add('hidden');
+  window.closeModal?.('modalClienteDetalles');
 }
 
 function irABuscarCliente() {
