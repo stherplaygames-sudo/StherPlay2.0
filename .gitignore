@@ -1,4 +1,6 @@
-﻿node_modules/
+node_modules/
 dist/
 serviceAccountKey.json
 .env
+android/.idea/
+android/gradle/gradle-daemon-jvm.properties
