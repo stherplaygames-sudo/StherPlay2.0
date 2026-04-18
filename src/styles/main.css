@@ -1500,6 +1500,10 @@ select:focus {
   grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
 }
 
+#emails-view .accounts-toolbar .search-toolbar-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .account-card {
   display: grid;
   gap: 0.9rem;
@@ -1806,6 +1810,15 @@ select:focus {
   gap: 0.9rem;
 }
 
+.correo-card .card-top > div:first-child {
+  min-width: 0;
+}
+
+.correo-card h3 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .correo-platform-list {
   display: grid;
   gap: 0.55rem;
@@ -1873,6 +1886,39 @@ select:focus {
 .password-toggle-btn {
   width: 44px;
   height: 44px;
+}
+
+#emails-view .module-shell {
+  padding-bottom: 6.2rem;
+}
+
+@media (max-width: 520px) {
+  .correo-password-row .password-inline {
+    grid-template-columns: minmax(0, 1fr) 40px;
+    gap: 0.45rem;
+  }
+
+  .correo-password-row .password-toggle-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .correo-actions-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .correo-actions-row .slim-btn {
+    min-width: 0;
+    padding: 0.68rem 0.35rem;
+    font-size: 0.84rem;
+  }
+
+  .correo-card {
+    padding: 0.9rem;
+  }
 }
 
 .toast {

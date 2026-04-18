@@ -5,6 +5,7 @@ const plataformasService = window.plataformasService;
 const accountsService = window.accountsService;
 const cuentasSmart = window.cuentasSmart;
 const correosService = window.correosService;
+const profilesService = window.profilesService;
 const { normalizarFechaISO, setButtonLoading, showToast } = window.appUtils;
 
 function iconMarkup(name) {
@@ -449,6 +450,7 @@ async function initPlataformaDropdown() {
 
   try {
     const data = await plataformasService.getPlataformas();
+    state.platformCatalog = data || [];
     const uniquePlatforms = Array.from(
       new Map(
         (data || [])
@@ -618,6 +620,136 @@ async function updateProfileSuggestions() {
   list.classList.toggle('hidden', !shouldOpen);
 }
 
+function hideEditCorreoSuggestions() {
+  const list = document.getElementById('editCorreosList');
+  if (list) list.classList.add('hidden');
+}
+
+function hideEditProfileSuggestions() {
+  const list = document.getElementById('editPerfilesList');
+  if (list) list.classList.add('hidden');
+}
+
+function renderEditCorreoSuggestions() {
+  const input = document.getElementById('editCorreoSub');
+  const list = document.getElementById('editCorreosList');
+  const items = Array.isArray(state.correosCatalog) ? state.correosCatalog : [];
+  if (!input || !list) return;
+
+  const value = String(input.value || '').trim().toLowerCase();
+  const selected = items.find((item) => String(item.email || '').toLowerCase() === value);
+  const filtered = value
+    ? items.filter((item) => String(item.email || '').toLowerCase().includes(value)).slice(0, 6)
+    : items.slice(0, 6);
+
+  input.dataset.correoId = selected?.id || '';
+
+  list.innerHTML = filtered
+    .map((item) => `<div data-correo-id="${item.id}">${item.email}</div>`)
+    .join('');
+
+  list.querySelectorAll('[data-correo-id]').forEach((node) => {
+    node.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      const picked = items.find((item) => item.id === node.dataset.correoId);
+      input.value = picked?.email || '';
+      input.dataset.correoId = picked?.id || '';
+      hideEditCorreoSuggestions();
+      updateEditProfileSuggestions();
+    });
+  });
+
+  list.classList.toggle('hidden', filtered.length === 0);
+}
+
+async function updateEditProfileSuggestions() {
+  const input = document.getElementById('editPerfilSub');
+  const list = document.getElementById('editPerfilesList');
+  const correoInput = document.getElementById('editCorreoSub');
+  const platformSelect = document.getElementById('editPlataforma');
+  if (!input || !list || !correoInput || !platformSelect) return;
+
+  const correo = String(correoInput.value || '').trim();
+  const correoId = String(correoInput.dataset.correoId || '').trim();
+  const plataforma = String(platformSelect.value || '').trim().toUpperCase();
+  const selectedAccountId = String(state.editSubscriptionAccountId || '').trim();
+
+  const platformRecord = (state.platformCatalog || []).find(
+    (item) => String(item.nombre || '').trim().toUpperCase() === plataforma
+  );
+  const maxProfiles = Number(platformRecord?.perfiles || 0) || 0;
+
+  const suggestions = await profilesService.getSuggestedProfiles({
+    accountId: selectedAccountId,
+    correoId,
+    email: correo,
+    platform: plataforma,
+    maxProfiles,
+    force: false,
+  });
+
+  state.editProfileSuggestions = suggestions;
+  const query = String(input?.value || '').trim().toLowerCase();
+  const filtered = (query
+    ? suggestions.filter((item) => item.toLowerCase().includes(query))
+    : suggestions
+  ).slice(0, 8);
+
+  list.innerHTML = filtered.map((item) => `<div data-profile="${item}">${item}</div>`).join('');
+  list.querySelectorAll('[data-profile]').forEach((node) => {
+    node.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      input.value = node.dataset.profile || '';
+      hideEditProfileSuggestions();
+    });
+  });
+
+  const shouldOpen = document.activeElement === input && filtered.length > 0;
+  list.classList.toggle('hidden', !shouldOpen);
+}
+
+function bindEditSubscriptionInputs() {
+  const correoInput = document.getElementById('editCorreoSub');
+  const perfilInput = document.getElementById('editPerfilSub');
+  const platformSelect = document.getElementById('editPlataforma');
+  if (!correoInput || !perfilInput) return;
+
+  if (correoInput.dataset.bound !== 'true') {
+    correoInput.dataset.bound = 'true';
+    correoInput.addEventListener('input', () => {
+      hideEditProfileSuggestions();
+      renderEditCorreoSuggestions();
+      updateEditProfileSuggestions();
+    });
+    correoInput.addEventListener('focus', () => {
+      renderEditCorreoSuggestions();
+    });
+    correoInput.addEventListener('blur', () => {
+      window.setTimeout(() => hideEditCorreoSuggestions(), 120);
+    });
+  }
+
+  if (perfilInput.dataset.bound !== 'true') {
+    perfilInput.dataset.bound = 'true';
+    perfilInput.addEventListener('input', () => {
+      updateEditProfileSuggestions();
+    });
+    perfilInput.addEventListener('focus', () => {
+      updateEditProfileSuggestions();
+    });
+    perfilInput.addEventListener('blur', () => {
+      window.setTimeout(() => hideEditProfileSuggestions(), 120);
+    });
+  }
+
+  if (platformSelect && platformSelect.dataset.profileBound !== 'true') {
+    platformSelect.dataset.profileBound = 'true';
+    platformSelect.addEventListener('change', () => {
+      updateEditProfileSuggestions();
+    });
+  }
+}
+
 
 function generarContrasenaSub() {
   const passwordInput = document.getElementById('subContrasena');
@@ -662,6 +794,7 @@ async function initEditPlataformaDropdown(selectedValue = '') {
 
   try {
     const data = await plataformasService.getPlataformas();
+    state.platformCatalog = data || [];
     const uniquePlatforms = Array.from(
       new Map(
         (data || [])
@@ -778,15 +911,22 @@ async function abrirEditarSuscripcion(id) {
   state.suscripcionEditando = id;
 
   try {
+    await initCorreosCatalog();
     const item = await firebaseService.getSubscriptionById(id);
     await initEditPlataformaDropdown(item.plataforma);
+    bindEditSubscriptionInputs();
+    state.editSubscriptionAccountId = item.accountId || item.cuentaId || '';
     document.getElementById('editInicio').value = item.inicio;
     document.getElementById('editVencimiento').value = item.vencimiento;
     document.getElementById('editEstado').value = item.estado;
     document.getElementById('editPrecioFinal').value = item.precioFinal || '';
     document.getElementById('editCorreoSub').value = item.correo || '';
+    document.getElementById('editCorreoSub').dataset.correoId = item.correoId || '';
     document.getElementById('editPerfilSub').value = item.perfil || '';
     document.getElementById('editPinSub').value = item.pin || '';
+    await updateEditProfileSuggestions();
+    hideEditCorreoSuggestions();
+    hideEditProfileSuggestions();
     window.openModal?.('modalEditarSub');
   } catch (error) {
     console.error(error);
@@ -798,12 +938,14 @@ async function confirmarEditarSub() {
   const btn = document.querySelector('#modalEditarSub .btn-save');
   const payload = {
     idSuscripcion: state.suscripcionEditando,
+    cuentaId: state.editSubscriptionAccountId || '',
     plataforma: document.getElementById('editPlataforma').value,
     inicio: document.getElementById('editInicio').value,
     vencimiento: document.getElementById('editVencimiento').value,
     estado: document.getElementById('editEstado').value,
     precioFinal: document.getElementById('editPrecioFinal').value,
     correo: document.getElementById('editCorreoSub').value.trim(),
+    correoId: document.getElementById('editCorreoSub').dataset.correoId || '',
     perfil: document.getElementById('editPerfilSub').value.trim(),
     pin: document.getElementById('editPinSub').value.trim(),
   };
@@ -839,6 +981,9 @@ function generarPinEditarSub() {
 
 function cerrarEditarSub() {
   window.closeModal?.('modalEditarSub');
+  hideEditCorreoSuggestions();
+  hideEditProfileSuggestions();
+  state.editSubscriptionAccountId = null;
   state.suscripcionEditando = null;
 }
 

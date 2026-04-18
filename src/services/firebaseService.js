@@ -12,6 +12,7 @@
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig.js';
+import { getProfileBySubscriptionId, releaseProfile, upsertProfile } from './profilesService.js';
 
 function mapSnapshot(snapshot) {
   return snapshot.docs.map((item) => ({
@@ -48,6 +49,13 @@ function buildAccountKey(platform, email) {
   const platformKey = normalizeSlug(platform) || 'sin-plataforma';
   const emailKey = buildCorreoKey(email);
   return `${platformKey}--${emailKey}`;
+}
+
+function buildProfileKey(accountId, platform, profileName) {
+  const accountKey = normalizeSlug(accountId) || 'sin-cuenta';
+  const platformKey = normalizeSlug(platform) || 'sin-plataforma';
+  const profileKey = normalizeSlug(profileName) || 'sin-perfil';
+  return `${accountKey}--${platformKey}--${profileKey}`;
 }
 
 function parseDateInput(value) {
@@ -121,6 +129,53 @@ function deriveSubscriptionStatus(expireDate, explicitStatus = '') {
   if (daysRemaining <= 0) return 'VENCIDA';
   if (daysRemaining <= 7) return 'POR_VENCER';
   return 'ACTIVA';
+}
+
+async function syncProfileAssignment({
+  previousProfileId = '',
+  subscriptionId = '',
+  accountId = '',
+  platform = '',
+  profileName = '',
+  pin = '',
+  email = '',
+  correoId = '',
+  clientId = '',
+  clientName = '',
+}) {
+  const prevId = cleanString(previousProfileId);
+  const nextName = cleanString(profileName);
+
+  if (prevId && (!nextName || prevId !== buildProfileKey(accountId, platform, nextName))) {
+    await releaseProfile(prevId);
+  }
+
+  if (!nextName) return '';
+
+  const profileId = buildProfileKey(accountId, platform, nextName);
+  await upsertProfile({
+    id: profileId,
+    accountId,
+    cuentaId: accountId,
+    correoId,
+    emailId: correoId,
+    correo: email,
+    email,
+    plataforma: platform,
+    platform,
+    name: nextName,
+    perfil: nextName,
+    pin,
+    password: pin,
+    subscriptionId,
+    idSuscripcion: subscriptionId,
+    clientId,
+    clienteId: clientId,
+    assignedTo: clientId,
+    assignedClientName: clientName,
+  });
+
+  return profileId;
 }
 
 async function getClients() {
@@ -408,6 +463,9 @@ async function createSubscription(payload) {
       ? Number(payload?.precioFinal) || 0
       : priceBase;
   const subscriptionId = await generateUniqueSubscriptionId(clientId, platform, startDate);
+  const profileName = cleanString(payload?.perfil);
+  const pin = cleanString(payload?.contrasena);
+  const profileId = profileName ? buildProfileKey(accountId, platform, profileName) : '';
 
   const subscriptionPayload = {
     id: subscriptionId,
@@ -439,8 +497,12 @@ async function createSubscription(payload) {
     precioFinal: finalPrice,
     precio: finalPrice,
     price: finalPrice,
-    perfil: cleanString(payload?.perfil),
-    profile: cleanString(payload?.perfil),
+    perfil: profileName,
+    profile: profileName,
+    profileId,
+    pin,
+    contrasena: pin,
+    password: pin,
     source: 'firebase',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -460,10 +522,12 @@ async function createSubscription(payload) {
     emailId: correoId,
     correo: email,
     email,
-    perfil: cleanString(payload?.perfil),
-    profile: cleanString(payload?.perfil),
-    contrasena: cleanString(payload?.contrasena),
-    password: cleanString(payload?.contrasena),
+    perfil: profileName,
+    profile: profileName,
+    profileId,
+    pin,
+    contrasena: pin,
+    password: pin,
     source: 'firebase',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -495,6 +559,20 @@ async function createSubscription(payload) {
   }, { merge: true });
   await batch.commit();
 
+  if (profileName) {
+    await syncProfileAssignment({
+      subscriptionId,
+      accountId,
+      platform,
+      profileName,
+      pin,
+      email,
+      correoId,
+      clientId,
+      clientName: cleanString(client?.nombre || client?.name),
+    });
+  }
+
   return { ok: true, idSuscripcion: subscriptionId, cuentaId: accountId };
 }
 
@@ -507,9 +585,17 @@ async function getSubscriptionById(subscriptionId) {
 
   const data = snapshot.data();
   const relatedAccount = await getAccountBySubscriptionId(id);
+  const profileDoc = await getProfileBySubscriptionId(id);
+  const profileId = cleanString(data?.profileId || profileDoc?.id);
+  const resolvedProfile = cleanString(profileDoc?.name || profileDoc?.perfil || data?.perfil || data?.profile || relatedAccount?.perfil);
+  const resolvedPin = cleanString(profileDoc?.pin || data?.pin || data?.contrasena || data?.password || relatedAccount?.contrasena);
   return {
     idSuscripcion: id,
     cuentaId: cleanString(data?.cuentaId || data?.accountId || relatedAccount?.cuentaId),
+    accountId: cleanString(data?.cuentaId || data?.accountId || relatedAccount?.cuentaId),
+    profileId,
+    clientId: cleanString(data?.clientId || data?.clienteId),
+    clientName: cleanString(data?.clientName || data?.nombre),
     plataforma: cleanString(data?.plataforma || data?.platform),
     inicio: formatDateISO(data?.fechaInicio || data?.startDate),
     vencimiento: formatDateISO(data?.fechaVencimiento || data?.expireDate),
@@ -520,8 +606,8 @@ async function getSubscriptionById(subscriptionId) {
     precioFinal: data?.precioFinal ?? data?.precio ?? data?.price ?? '',
     correo: cleanString(data?.correo || data?.email || relatedAccount?.correo),
     correoId: cleanString(data?.correoId || data?.emailId),
-    perfil: cleanString(data?.perfil || data?.profile || relatedAccount?.perfil),
-    pin: cleanString(data?.pin || data?.contrasena || data?.password || relatedAccount?.contrasena),
+    perfil: resolvedProfile,
+    pin: resolvedPin,
   };
 }
 
@@ -538,10 +624,12 @@ async function updateSubscription(payload) {
   const email = cleanString(payload?.correo || existing.correo);
   const profile = cleanString(payload?.perfil || existing.perfil);
   const pin = cleanString(payload?.pin || existing.pin);
+  const previousProfileId = cleanString(existing?.profileId);
   const incomingCorreoId = cleanString(payload?.correoId || existing.correoId);
   const ensuredCorreoId = email ? await ensureCorreoDocument(email, pin, incomingCorreoId) : '';
   const correoId = ensuredCorreoId || incomingCorreoId || buildCorreoKey(email);
   const accountId = cleanString(payload?.cuentaId) || existing.cuentaId || buildAccountKey(platform, email);
+  const profileId = profile ? buildProfileKey(accountId, platform, profile) : '';
   const status = deriveSubscriptionStatus(expireDate, explicitStatus);
   const daysRemaining = calculateDaysRemaining(expireDate);
 
@@ -566,6 +654,7 @@ async function updateSubscription(payload) {
     status,
     perfil: profile,
     profile,
+    profileId,
     pin,
     contrasena: pin,
     password: pin,
@@ -595,10 +684,24 @@ async function updateSubscription(payload) {
     email,
     perfil: profile,
     profile,
+    profileId,
     contrasena: pin,
     password: pin,
     updatedAt: serverTimestamp(),
   }, { merge: true });
+
+  await syncProfileAssignment({
+    previousProfileId,
+    subscriptionId: id,
+    accountId,
+    platform,
+    profileName: profile,
+    pin,
+    email,
+    correoId,
+    clientId: cleanString(existing?.clientId),
+    clientName: cleanString(existing?.clientName || existing?.nombre),
+  });
 
   return { ok: true };
 }
@@ -612,11 +715,12 @@ async function getAccountBySubscriptionId(subscriptionId) {
     const data = directSnapshot.data();
     const logicalAccountId = cleanString(data?.cuentaId || data?.accountId);
     const meta = await getAccountMetaByAccountId(logicalAccountId);
+    const profile = await getProfileBySubscriptionId(id);
     return {
       cuentaId: logicalAccountId,
       correo: cleanString(meta?.correo || data?.correo || data?.email),
-      perfil: cleanString(data?.perfil || data?.profile),
-      contrasena: cleanString(data?.contrasena || data?.password),
+      perfil: cleanString(profile?.name || profile?.perfil || data?.perfil || data?.profile),
+      contrasena: cleanString(profile?.pin || data?.contrasena || data?.password),
       renewalDate: cleanString(meta?.renewalDate),
       renewalPrice: Number(meta?.renewalPrice || 0) || 0,
       autoRenew: Boolean(meta?.autoRenew),
@@ -639,11 +743,12 @@ async function getAccountBySubscriptionId(subscriptionId) {
   const data = accountDoc.data();
   const logicalAccountId = cleanString(data?.cuentaId || data?.accountId);
   const meta = await getAccountMetaByAccountId(logicalAccountId);
+  const profile = await getProfileBySubscriptionId(id);
   return {
     cuentaId: logicalAccountId,
     correo: cleanString(meta?.correo || data?.correo || data?.email),
-    perfil: cleanString(data?.perfil || data?.profile),
-    contrasena: cleanString(data?.contrasena || data?.password),
+    perfil: cleanString(profile?.name || profile?.perfil || data?.perfil || data?.profile),
+    contrasena: cleanString(profile?.pin || data?.contrasena || data?.password),
     renewalDate: cleanString(meta?.renewalDate),
     renewalPrice: Number(meta?.renewalPrice || 0) || 0,
     autoRenew: Boolean(meta?.autoRenew),
@@ -658,12 +763,16 @@ async function updateAccount(payload) {
 
   const subscriptionSnapshot = await getDoc(doc(db, 'subscriptions', id));
   const subscriptionData = subscriptionSnapshot.exists() ? subscriptionSnapshot.data() : {};
+  const previousProfileId = cleanString(subscriptionData?.profileId);
   const platform = cleanString(subscriptionData?.plataforma || subscriptionData?.platform);
   const email = cleanString(payload?.correo);
   const incomingCorreoId = cleanString(payload?.correoId);
   const ensuredCorreoId = email ? await ensureCorreoDocument(email, payload?.contrasena, incomingCorreoId) : '';
   const correoId = ensuredCorreoId || incomingCorreoId || buildCorreoKey(email);
   const accountId = cleanString(payload?.cuentaId) || buildAccountKey(platform, email);
+  const profile = cleanString(payload?.perfil);
+  const pin = cleanString(payload?.contrasena);
+  const profileId = profile ? buildProfileKey(accountId, platform, profile) : '';
 
   await setDoc(
     doc(db, 'accounts', id),
@@ -677,10 +786,12 @@ async function updateAccount(payload) {
       emailId: correoId,
       correo: email,
       email,
-      perfil: cleanString(payload?.perfil),
-      profile: cleanString(payload?.perfil),
-      contrasena: cleanString(payload?.contrasena),
-      password: cleanString(payload?.contrasena),
+      perfil: profile,
+      profile: profile,
+      profileId,
+      pin,
+      contrasena: pin,
+      password: pin,
       source: 'firebase',
       updatedAt: serverTimestamp(),
     },
@@ -706,12 +817,26 @@ async function updateAccount(payload) {
     email,
     correoId,
     emailId: correoId,
-    perfil: cleanString(payload?.perfil),
-    profile: cleanString(payload?.perfil),
-    pin: cleanString(payload?.contrasena),
-    contrasena: cleanString(payload?.contrasena),
-    password: cleanString(payload?.contrasena),
+    perfil: profile,
+    profile: profile,
+    profileId,
+    pin,
+    contrasena: pin,
+    password: pin,
     updatedAt: serverTimestamp(),
+  });
+
+  await syncProfileAssignment({
+    previousProfileId,
+    subscriptionId: id,
+    accountId,
+    platform,
+    profileName: profile,
+    pin,
+    email,
+    correoId,
+    clientId: cleanString(subscriptionData?.clientId || subscriptionData?.clienteId),
+    clientName: cleanString(subscriptionData?.clientName || subscriptionData?.nombre),
   });
 
   return { ok: true, cuentaId: accountId };
@@ -764,9 +889,60 @@ async function deleteCorreo(correoId) {
   return { ok: true };
 }
 
+async function deleteAccountSafe(accountId) {
+  const id = cleanString(accountId);
+  if (!id) throw new Error('Cuenta ID requerido');
+
+  const subscriptionsRef = collection(db, 'subscriptions');
+  const [byCuentaId, byAccountId] = await Promise.all([
+    getDocs(query(subscriptionsRef, where('cuentaId', '==', id))),
+    getDocs(query(subscriptionsRef, where('accountId', '==', id))),
+  ]);
+
+  const linkedSubscriptions = [...byCuentaId.docs, ...byAccountId.docs]
+    .filter((item, index, self) => self.findIndex((x) => x.id === item.id) === index);
+
+  if (linkedSubscriptions.length > 0) {
+    throw new Error('No se puede eliminar: la cuenta tiene suscripciones activas');
+  }
+
+  const profilesRef = collection(db, 'profiles');
+  const [profilesByCuentaId, profilesByAccountId] = await Promise.all([
+    getDocs(query(profilesRef, where('cuentaId', '==', id))),
+    getDocs(query(profilesRef, where('accountId', '==', id))),
+  ]);
+
+  const profileDocs = [...profilesByCuentaId.docs, ...profilesByAccountId.docs]
+    .filter((item, index, self) => self.findIndex((x) => x.id === item.id) === index);
+
+  for (const profileDoc of profileDocs) {
+    const data = profileDoc.data();
+    if (cleanString(data?.assignedTo || data?.clientId || data?.clienteId)) {
+      throw new Error('No se puede eliminar: existen perfiles asignados');
+    }
+  }
+
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'accounts', id));
+  profileDocs.forEach((profileDoc) => {
+    batch.delete(profileDoc.ref);
+  });
+  await batch.commit();
+
+  return {
+    ok: true,
+    deletedProfiles: profileDocs.length,
+  };
+}
+
 async function deleteSubscriptionCascade(subscriptionId) {
   const id = cleanString(subscriptionId);
   if (!id) throw new Error('Subscription ID is required');
+
+  const linkedProfile = await getProfileBySubscriptionId(id);
+  if (linkedProfile?.id) {
+    await releaseProfile(linkedProfile.id);
+  }
 
   const batch = writeBatch(db);
   batch.delete(doc(db, 'subscriptions', id));
@@ -851,11 +1027,45 @@ async function deleteClientCascade(clientId) {
     });
   }
 
+  const profilesRef = collection(db, 'profiles');
+  const profileSnapshots = await Promise.all([
+    getDocs(query(profilesRef, where('clientId', '==', id))),
+    getDocs(query(profilesRef, where('clienteId', '==', id))),
+    getDocs(query(profilesRef, where('assignedTo', '==', id))),
+  ]);
+
+  const profileIds = new Set();
+  profileSnapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((profileDoc) => {
+      if (profileIds.has(profileDoc.id)) return;
+      profileIds.add(profileDoc.id);
+      batch.delete(profileDoc.ref);
+    });
+  });
+
+  if (subscriptionIds.size > 0) {
+    const subscriptionIdArray = [...subscriptionIds];
+    const linkedProfiles = await Promise.all(
+      subscriptionIdArray.map((subscriptionId) =>
+        getDocs(query(profilesRef, where('subscriptionId', '==', subscriptionId)))
+      )
+    );
+
+    linkedProfiles.forEach((snapshot) => {
+      snapshot.docs.forEach((profileDoc) => {
+        if (profileIds.has(profileDoc.id)) return;
+        profileIds.add(profileDoc.id);
+        batch.delete(profileDoc.ref);
+      });
+    });
+  }
+
   await batch.commit();
   return {
     ok: true,
     deletedSubscriptions: subscriptionIds.size,
     deletedAccounts: accountIds.size,
+    deletedProfiles: profileIds.size,
   };
 }
 
@@ -865,8 +1075,8 @@ window.firebaseService = {
   getSubscriptions,
   getAccounts,
   buildCorreoKey,
-  buildCorreoKey,
   buildAccountKey,
+  buildProfileKey,
   createClient,
   updateClient,
   getPlatforms,
@@ -878,6 +1088,7 @@ window.firebaseService = {
   getAccountMetaByAccountId,
   updateAccountMeta,
   deleteCorreo,
+  deleteAccountSafe,
   suspendSubscription,
   renewSubscription,
   deleteSubscriptionCascade,
@@ -890,6 +1101,7 @@ export {
   getSubscriptions,
   getAccounts,
   buildAccountKey,
+  buildProfileKey,
   createClient,
   updateClient,
   getPlatforms,
@@ -901,6 +1113,7 @@ export {
   getAccountMetaByAccountId,
   updateAccountMeta,
   deleteCorreo,
+  deleteAccountSafe,
   suspendSubscription,
   renewSubscription,
   deleteSubscriptionCascade,

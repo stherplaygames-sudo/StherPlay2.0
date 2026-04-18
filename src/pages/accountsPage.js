@@ -135,6 +135,7 @@ function renderAccountsCards() {
           <div class="card-actions-row account-actions">
             <button type="button" class="module-action slim-btn" onclick="verDetallesCuenta('${item.id.replace(/'/g, '')}')">Detalles</button>
             <button type="button" class="btn-edit slim-btn" onclick="abrirEditarCuentaGeneral('${item.id.replace(/'/g, '')}')">Editar</button>
+            <button type="button" class="btn-cancel slim-btn" onclick="eliminarCuentaGeneral('${item.id.replace(/'/g, '')}')">Eliminar</button>
           </div>
         </article>
       `;
@@ -297,6 +298,33 @@ async function confirmarEditarCuentaGeneral() {
   }
 }
 
+async function eliminarCuentaGeneral(accountId) {
+  const id = String(accountId || '').trim();
+  if (!id) return;
+
+  const confirmacion = window.prompt('Escribe ELIMINAR para borrar esta cuenta sin suscripciones activas');
+  if (String(confirmacion || '').trim().toUpperCase() !== 'ELIMINAR') {
+    showToast?.('Eliminación cancelada', 'error');
+    return;
+  }
+
+  try {
+    await firebaseService.deleteAccountSafe(id);
+    appCache.invalidate();
+    showToast?.('Cuenta eliminada');
+    await Promise.all([
+      refreshAccountsView(true),
+      window.plataformasPage?.refreshPlatformsView?.(true),
+      window.correosPage?.refreshCorreosView?.(true),
+      window.subscriptionsPage?.refreshSubscriptionsView?.(true),
+    ]);
+    window.dashboardPage?.refreshDashboard?.();
+  } catch (error) {
+    console.error(error);
+    showToast?.(error?.message || 'No se pudo eliminar la cuenta', 'error');
+  }
+}
+
 function init() {
   const searchInput = document.getElementById('accountsSearchInput');
   const platformSelect = document.getElementById('accountsPlatformSelect');
@@ -328,3 +356,4 @@ window.verDetallesCuenta = verDetallesCuenta;
 window.cerrarDetallesCuenta = cerrarDetallesCuenta;
 window.abrirEditarCuentaGeneral = abrirEditarCuentaGeneral;
 window.confirmarEditarCuentaGeneral = confirmarEditarCuentaGeneral;
+window.eliminarCuentaGeneral = eliminarCuentaGeneral;

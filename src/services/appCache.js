@@ -3,12 +3,31 @@ const firebaseService = window.firebaseService;
 
 const CACHE_STORAGE_KEY = 'sther-play-cache-v2';
 
+function parseDateLocal(value) {
+  if (!value) return null;
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
+    const [day, month, year] = text.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDate(value) {
   if (!value) return '';
 
   if (typeof value === 'string') {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
+    const parsed = parseDateLocal(value);
+    if (parsed && !Number.isNaN(parsed.getTime())) {
       const year = parsed.getFullYear();
       const month = String(parsed.getMonth() + 1).padStart(2, '0');
       const day = String(parsed.getDate()).padStart(2, '0');
@@ -21,8 +40,8 @@ function formatDate(value) {
     return formatDate(value.toDate());
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '';
+  const parsed = parseDateLocal(value);
+  if (!parsed || Number.isNaN(parsed.getTime())) return '';
 
   const year = parsed.getFullYear();
   const month = String(parsed.getMonth() + 1).padStart(2, '0');
@@ -62,7 +81,7 @@ function normalizeSubscriptionStatus(subscription, accountsMap = {}) {
   const idSuscripcion = String(subscription?.idSuscripcion || subscription?.id || '').trim();
   const expireDate = formatDate(subscription?.fechaVencimiento || subscription?.expireDate);
   const startDate = formatDate(subscription?.fechaInicio || subscription?.startDate);
-  const endDate = expireDate ? new Date(expireDate) : null;
+  const endDate = expireDate ? parseDateLocal(expireDate) : null;
   const daysRemaining = endDate && !Number.isNaN(endDate.getTime())
     ? Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24))
     : subscription?.diasRestantes ?? subscription?.daysRemaining ?? null;
@@ -87,6 +106,7 @@ function normalizeSubscriptionStatus(subscription, accountsMap = {}) {
   return {
     ...subscription,
     idSuscripcion,
+    profileId: String(subscription?.profileId || '').trim(),
     cuentaId,
     accountId: cuentaId,
     clientId: String(subscription?.clientId || subscription?.clienteId || '').trim(),
@@ -99,7 +119,7 @@ function normalizeSubscriptionStatus(subscription, accountsMap = {}) {
     precio: Number(subscription?.precio || subscription?.price || 0),
     correo: String(subscription?.correo || subscription?.email || linkedAccount.correo || 'No asignado').trim(),
     perfil: String(subscription?.perfil || subscription?.profile || linkedAccount.perfil || 'No asignado').trim(),
-    contrasena: String(subscription?.contrasena || subscription?.password || linkedAccount.contrasena || 'No asignada').trim(),
+    contrasena: String(subscription?.pin || subscription?.contrasena || subscription?.password || linkedAccount.contrasena || 'No asignada').trim(),
     diasRestantes: daysRemaining,
     estadoNormalizado: normalizedStatus,
   };
@@ -312,6 +332,7 @@ function invalidate() {
   state.accountSummaries = null;
   state.correoSummaries = null;
   state.correosCatalog = null;
+  state.profilesCache = null;
   state.loadError = null;
   window.updateSyncStatus?.();
 }

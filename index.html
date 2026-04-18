@@ -337,6 +337,7 @@
     <script type="module" src="src/utils/alertas.js"></script>
     <script type="module" src="src/utils/autoBuy.js"></script>
     <script type="module" src="src/utils/rentabilidad.js"></script>
+    <script type="module" src="src/services/profilesService.js"></script>
     <script type="module" src="src/services/firebaseService.js"></script>
     <script type="module" src="src/services/plataformasService.js"></script>
     <script type="module" src="src/services/accountsService.js"></script>
@@ -410,10 +411,16 @@
         <input id="editPrecioFinal" placeholder="Leave empty to keep current value" />
 
         <label>Email</label>
-        <input id="editCorreoSub" placeholder="correo@gmail.com" disabled />
+        <div class="dropdown">
+          <input id="editCorreoSub" placeholder="correo@gmail.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <div id="editCorreosList" class="dropdown-list hidden"></div>
+        </div>
 
         <label>Perfil</label>
-        <input id="editPerfilSub" placeholder="Perfil 1" />
+        <div class="dropdown">
+          <input id="editPerfilSub" placeholder="Perfil 1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <div id="editPerfilesList" class="dropdown-list hidden"></div>
+        </div>
 
         <label>PIN</label>
         <div class="input-with-action">
